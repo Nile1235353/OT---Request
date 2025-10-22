@@ -10,7 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     {{-- Alpine.js Script for Toast Notification --}}
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
 
@@ -68,6 +68,16 @@
                             {{ session('success') }}
                         </p>
                     </div>
+                    {{-- === ADDED: Close Button === --}}
+                    <div class="ml-4 flex-shrink-0">
+                        <button @click="show = false" type="button" class="inline-flex rounded-md bg-green-500 text-green-100 hover:text-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-green-500">
+                            <span class="sr-only">Close</span>
+                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    {{-- === END: Close Button === --}}
                 </div>
             </div>
         </div>

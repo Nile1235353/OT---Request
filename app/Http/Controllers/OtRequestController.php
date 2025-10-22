@@ -144,7 +144,8 @@ class OtRequestController extends Controller
     // Approve OT
 
     /**
-     * Display the approval dashboard.
+     * Display the OT approval page with pending and history requests.
+     * (ဒါက သင်ထည့်ခိုင်းတဲ့ function အသစ်ပါ)
      */
     public function otApprove(): View|RedirectResponse
     {
@@ -178,13 +179,28 @@ class OtRequestController extends Controller
             ->take(10) 
             ->get();
 
-        return view('pages.approveOt.approveot', compact('pendingRequests', 'historyRequests'));
+        // 3. --- ADDED ---
+        // Login ဝင်ထားသူရဲ့ department ထဲက user တွေ အကုန်လုံးကို ဆွဲထုတ်ပါမယ်။
+        // ဒါကို "Add New User" modal dropdown မှာ သုံးပါမယ်။
+        $allUsers = User::where('department', $user->department)
+                        ->orderBy('name', 'asc')
+                        ->get();
+
+        // 4. --- MODIFIED ---
+        // $allUsers ကို view ဆီသို့ ထည့်ပို့ပေးပါမယ်။
+        return view('pages.approveOt.approveot', compact('pendingRequests', 'historyRequests', 'allUsers'));
     }
 
+
     /**
-     * Approve an OT request.
+     * Approve an OT request with potential modifications to assigned users.
+     * (ဒါက မူလရှိပြီးသား approve logic function ပါ)
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\OtRequest  $otRequest
+     * @return \Illuminate\Http\RedirectResponse
      */
-    public function approve(OtRequest $otRequest)
+    public function approve(Request $request, OtRequest $otRequest)
     {
         // --- START: Authorization Check ---
         $user = Auth::user();
@@ -196,10 +212,90 @@ class OtRequestController extends Controller
         }
         // --- END: Authorization Check ---
 
-        $otRequest->update(['status' => 'approved']);
-        return redirect()->back()->with('success', 'OT Request has been approved.');
+        // --- START: Update Logic from Modal Form ---
+
+        // 1. Update or Remove existing users
+        if ($request->has('users')) {
+            foreach ($request->users as $userId => $data) {
+                
+                $assignedUser = assignTeam::where('ot_requests_id', $otRequest->id)
+                                            ->where('user_id', $userId)
+                                            ->first();
+                
+                if ($assignedUser) {
+                    if (isset($data['remove']) && $data['remove'] == '1') {
+                        $assignedUser->delete();
+                    } else {
+                        $assignedUser->task_description = $data['task_description'];
+                        $assignedUser->save();
+                    }
+                }
+            }
+        }
+
+        // 2. --- MODIFIED: Add new users (plural) ---
+        // Logic ကို `exists()` check အစား ပိုမိုစိတ်ချရသော `updateOrCreate` ဖြင့် ပြောင်းလဲထားပါသည်။
+        if ($request->has('new_users')) {
+            foreach ($request->new_users as $userId => $data) {
+                // Ensure task is not empty and ID is valid
+                if (!empty($data['id']) && !empty($data['task_description'])) {
+                    
+                    // User ရှိ၊ မရှိ စစ်ဆေးပြီး မရှိလျှင် အသစ်ထည့်၊ ရှိလျှင် update လုပ်ပါမည်။
+                    // (Soft-deleted ဖြစ်နေခဲ့လျှင်လည်း ၎င်းကို update လုပ်ပေးနိုင်ပါသည်)
+                    assignTeam::updateOrCreate(
+                        [
+                            'ot_requests_id' => $otRequest->id,
+                            'user_id' => $data['id'],
+                        ],
+                        [
+                            'task_description' => $data['task_description'],
+                            // If your model uses soft deletes, ensure 'deleted_at' is null
+                            // 'deleted_at' => null 
+                        ]
+                    );
+                }
+            }
+        }
+
+        // 3. Finally, approve the main request
+        $otRequest->status = 'approved';
+        // $otRequest->approved_by = $user->id; 
+        $otRequest->save();
+
+        // --- END: Update Logic ---
+
+        return redirect()->back()->with('success', 'OT Request has been approved with changes.');
     }
 
+    // --- ADDED: New function to reverse approval ---
+    /**
+     * Reverse an approved OT request back to rejected.
+     *
+     * @param  \App\Models\OtRequest  $otRequest
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    // public function reject(OtRequest $otRequest)
+    // {
+    //     // --- START: Authorization Check ---
+    //     $user = Auth::user();
+    //     $isManagerLevel = in_array($user->position, ['Manager', 'Admin', 'HR']);
+
+    //     if ($user->role !== 'Admin' && !$isManagerLevel) {
+    //         return redirect()->back()->with('error', 'You do not have permission to access this page.');
+    //     }
+    //     // --- END: Authorization Check ---
+
+    //     // Only approved requests can be reversed
+    //     if ($otRequest->status == 'approved') {
+    //         $otRequest->status = 'rejected';
+    //         // $otRequest->approved_by = null; // Optional: clear who approved it
+    //         $otRequest->save();
+            
+    //         return redirect()->back()->with('success', 'OT approval has been reversed and set to rejected.');
+    //     }
+
+    //     return redirect()->back()->with('error', 'Only approved requests can be reversed.');
+    // }
     /**
      * Reject an OT request.
      */
@@ -218,5 +314,4 @@ class OtRequestController extends Controller
         $otRequest->update(['status' => 'rejected']);
         return redirect()->back()->with('success', 'OT Request has been rejected.');
     }
-
 }
