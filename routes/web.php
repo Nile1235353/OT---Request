@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\OtRequestController;
+use App\Http\Controllers\UserController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -49,5 +50,7 @@ Route::middleware('auth')->group(function(){
     Route::post('/approve-ot/{otRequest}/approve', [OtRequestController::class, 'approve'])->name('approvals.approve');
     Route::post('/approve-ot/{otRequest}/reject', [OtRequestController::class, 'reject'])->name('approvals.reject');
 });
+
+Route::get('/users/{user}/ot', [UserController::class, 'getOvertimeData'])->middleware(['auth', 'verified']);
 
 require __DIR__.'/auth.php';
