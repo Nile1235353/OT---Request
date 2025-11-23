@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\OtRequestController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\OtAttendanceController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -35,6 +36,7 @@ Route::middleware('auth')->group(function () {
     // Route::get('/my-ot', [OtRequestController::class, 'myotView'])->name('myot.view');
     Route::get('/my-ot', [OtRequestController::class, 'myotView'])->name('my-ot.dashboard');
     Route::post('/my-ot/{job}/acknowledge', [OtRequestController::class, 'acknowledge'])->name('my-ot.acknowledge');
+    Route::get('/my-ot', [OtRequestController::class, 'myotView'])->name('my-ot.view');
 });
 
 // OT Request Routes
@@ -51,6 +53,26 @@ Route::middleware('auth')->group(function(){
     Route::post('/approve-ot/{otRequest}/reject', [OtRequestController::class, 'reject'])->name('approvals.reject');
 });
 
-Route::get('/users/{user}/ot', [UserController::class, 'getOvertimeData'])->middleware(['auth', 'verified']);
+Route::get('/users/{user}/ot', [UserController::class, 'getOvertimeData'])
+    ->name('users.ot_data')
+    ->middleware(['auth', 'verified']);
+
+// Overtime Reports Routes
+
+Route::get('/reports/employee-ot', [OtRequestController::class, 'employeeOtReport'])->name('reports.employee-ot')->middleware(['auth', 'verified']);
+Route::get('/reports/employee-ot/export', [OtRequestController::class, 'exportEmployeeOt'])->name('reports.employee_ot.export')->middleware(['auth', 'verified']);
+
+// OT Page ကြည့်ရန် (GET)
+Route::get('/ot-attendance', [OtAttendanceController::class, 'index'])->name('ot.attendance.index');
+
+// Excel Import လုပ်ရန် (POST)
+Route::post('/ot-attendance/import', [OtAttendanceController::class, 'import'])->name('ot.attendance.import');
+
+
+// OT Report Task Update Route
+Route::put('/assign-team/{id}/update-task', [OtRequestController::class, 'updateTask'])
+    ->name('assign_team.update_task')
+    ->middleware(['auth', 'verified']);
+
 
 require __DIR__.'/auth.php';

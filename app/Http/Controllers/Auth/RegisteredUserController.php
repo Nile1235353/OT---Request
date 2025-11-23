@@ -21,21 +21,21 @@ class RegisteredUserController extends Controller
     {
 
         // --- START: Role Authorization Check ---
-        // Login ဝင်ထားတဲ့ user ရဲ့ role က 'Admin' or 'HR' မဟုတ်ဘူးဆိုရင်
         if ( !in_array(Auth::user()->role, ['Admin', 'HR']) ) {
-            // Error message နဲ့အတူ အနောက်ကိုပြန်သွားပါ
             return redirect()->back()->with('error', 'You do not have permission to access this page.');
         }
         // --- END: Role Authorization Check ---
 
-        // return view('pages.users.users');
         $users = User::all();
 
-        // Dropdown မှာထည့်မယ့် data list အသစ်တွေ
+        // Dropdown Lists
         $departments = ['Warehouse', 'BD', 'SCS', 'Data Center', 'ICD', 'CCA', 'IT', 'IT & Process', 'M&E', 'M&R', 'QEHS', 'HR', 'Corporate','Truck','Yard & Rail', 'Process', 'Finance'];
         $positions = ['Manager','Assistant Supervisor', 'Supervisor', 'Staff'];
+        
+        // [NEW] Locations List
+        $locations = ['Yangon', 'Mandalay', 'Nay Pyi Taw', 'Taunggyi', 'Mawlamyine'];
 
-        return view('pages.users.users', compact('users', 'departments', 'positions'));
+        return view('pages.users.users', compact('users', 'departments', 'positions', 'locations'));
     }
 
     /**
@@ -46,9 +46,7 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         // --- START: Role Authorization Check ---
-        // Login ဝင်ထားတဲ့ user ရဲ့ role က 'Admin' or 'HR' မဟုတ်ဘူးဆိုရင်
         if ( !in_array(Auth::user()->role, ['Admin', 'HR']) ) {
-            // Error message နဲ့အတူ အနောက်ကိုပြန်သွားပါ
             return redirect()->back()->with('error', 'You do not have permission to access this page.');
         }
         // --- END: Role Authorization Check ---
@@ -58,30 +56,33 @@ class RegisteredUserController extends Controller
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'employee_id' => ['nullable', 'string', 'max:255', 'unique:'.User::class],
+            
+            // [NEW] Fingerprint ID Validation (Unique ဖြစ်ရပါမယ်)
+            'finger_print_id' => ['nullable', 'string', 'max:50', 'unique:'.User::class],
+            
             'phone' => ['nullable', 'string', 'max:20'],
             'role' => ['nullable', 'string', 'max:50'],
             'department' => ['nullable', 'string', 'max:100'],
             'position' => ['nullable', 'string', 'max:100'],
+            
+            // [NEW] Location Validation
+            'location' => ['nullable', 'string', 'max:100'],
         ]);
-
-        // dd($request->all());
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'employee_id' => $request->employee_id,
+            'finger_print_id' => $request->finger_print_id, // [NEW] Saving Fingerprint ID
             'phone' => $request->phone,
+            'location' => $request->location, // [NEW] Saving Location
             'role' => $request->role ?? 'user',
             'department' => $request->department,
             'position' => $request->position,
         ]);
 
         event(new Registered($user));
-
-        // Auth::login($user);
-
-        // return redirect(route('users.create', absolute: false));
 
         return redirect()->route('users.create')->with('success', 'User created successfully!');
     }

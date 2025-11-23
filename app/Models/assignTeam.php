@@ -14,6 +14,11 @@ class assignTeam extends Model
         'employee_status',
     ];
 
+    
+    protected $table = 'assign_teams';
+
+    public $timestamps = false;
+
     // ဒီ assigned job က ဘယ် OtRequest နဲ့ဆိုင်လဲဆိုတာကို သိဖို့
     public function otRequest()
     {

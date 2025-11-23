@@ -68,7 +68,6 @@
                             {{ session('success') }}
                         </p>
                     </div>
-                    {{-- === ADDED: Close Button === --}}
                     <div class="ml-4 flex-shrink-0">
                         <button @click="show = false" type="button" class="inline-flex rounded-md bg-green-500 text-green-100 hover:text-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-green-500">
                             <span class="sr-only">Close</span>
@@ -77,7 +76,6 @@
                             </svg>
                         </button>
                     </div>
-                    {{-- === END: Close Button === --}}
                 </div>
             </div>
         </div>
@@ -85,7 +83,8 @@
 
     <div id="menu-overlay" class="fixed inset-0 bg-black/50 z-20 hidden"></div>
 
-    <div class="min-h-screen font-sans text-gray-800" style="background: linear-gradient(to top right, #eff6ff, #e0e7ff);">
+    {{-- Flex Column Layout to keep Footer at bottom --}}
+    <div class="min-h-screen flex flex-col font-sans text-gray-800" style="background: linear-gradient(to top right, #eff6ff, #e0e7ff);">
         <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-30 relative">
             
             <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
@@ -94,23 +93,30 @@
 
                 <div class="flex items-center">
                     <div id="desktop-menu" class="hidden md:flex items-center space-x-1">
-                        {{-- This link will only be visible to Admins and HR --}}
                         @auth
                             @if(in_array(auth()->user()->role, ['Admin', 'HR']))
                                 <a href="/users" class="nav-link px-4 py-2 rounded-md text-sm font-medium {{ request()->is('users*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-indigo-100/50' }}">User Management</a>
+                                
+                                <a href="/ot-attendance" class="nav-link px-4 py-2 rounded-md text-sm font-medium {{ request()->is('ot-attendance*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-indigo-100/50' }}">
+                                    Fingerprint Import
+                                </a>
+                            @endif
+                        @endauth
+                        
+                        @auth
+                            @if(auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Manager']))
+                                <a href="/reports/employee-ot" class="nav-link px-4 py-2 rounded-md text-sm font-medium {{ request()->is('reports*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-indigo-100/50' }}">OT Report</a>
                             @endif
                         @endauth
                         
                         <a href="/my-ot" class="nav-link px-4 py-2 rounded-md text-sm font-medium {{ request()->is('my-ot*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-indigo-100/50' }}">My OT</a>
 
-                        {{-- This link will only be visible to Role Admins and Position Manager / Supervisor / Assistant Supervisor--}}
                         @auth
                             @if(auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Supervisor', 'Assistant Supervisor', 'Manager']))
                                 <a href="/request-ot" class="nav-link px-4 py-2 rounded-md text-sm font-medium {{ request()->is('request-ot*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-indigo-100/50' }}">Request OT</a>
                             @endif
                         @endauth
 
-                        {{-- This link will only be visible to Role Admins and Position Manager / Supervisor / Assistant Supervisor--}}
                         @auth
                             @if(auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Manager']))
                                 <a href="/approve-ot" class="nav-link px-4 py-2 rounded-md text-sm font-medium {{ request()->is('approve-ot*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-indigo-100/50' }}">Approve OT</a>
@@ -153,22 +159,26 @@
             </nav>
             
             <div id="mobile-menu" class="absolute top-full left-0 w-full bg-white/95 backdrop-blur-md shadow-lg md:hidden opacity-0 pointer-events-none transform -translate-y-2 transition-all duration-300 ease-in-out z-40">
-                {{-- This link will only be visible to Admins and HR --}}
                 @auth
                     @if(in_array(auth()->user()->role, ['Admin', 'HR']))
                         <a href="/users" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('users*') ? 'active' : '' }}">User Management</a>
+                        
+                        <a href="/ot-attendance" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('ot-attendance*') ? 'active' : '' }}">
+                            Fingerprint Import
+                        </a>
+                        
+                        <a href="/reports/employee-ot" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('reports*') ? 'active' : '' }}">OT Report</a>
                     @endif
                 @endauth 
+                
                 <a href="/my-ot" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('my-ot*') ? 'active' : '' }}">My OT</a>
 
-                {{-- This link will only be visible to Role Admins and Position Manager / Supervisor / Assistant Supervisor--}}
                 @auth
                     @if(auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Supervisor', 'Assistant Supervisor', 'Manager']))
                         <a href="/request-ot" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('request-ot*') ? 'active' : '' }}">Request OT</a>
                     @endif
                 @endauth
                 
-                {{-- This link will only be visible to Role Admins and Position Manager / Supervisor / Assistant Supervisor--}}
                 @auth
                     @if(auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Manager']))
                         <a href="/approve-ot" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('approve-ot*') ? 'active' : '' }}">Approve OT</a>
@@ -178,17 +188,35 @@
             </div>
         </header>
 
-        <main class="container mx-auto p-6 md:p-8">
-            {{-- Content from other pages will be injected here --}}
+        {{-- Main Content --}}
+        <main class="container mx-auto p-6 md:p-8 flex-grow">
             @yield('content')
         </main>
+
+        {{-- [NEW] Footer Section --}}
+        <footer class="bg-white/60 backdrop-blur-sm border-t border-gray-200 mt-auto">
+            <div class="container mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
+                <div class="mb-2 md:mb-0 text-center md:text-left">
+                    {{-- Company Name & Copyright --}}
+                    &copy; {{ date('Y') }} <span class="font-bold text-indigo-600">OT Management System</span>. All rights reserved.
+                </div>
+                <div class="flex items-center gap-4">
+                    {{-- Developer Info or Company --}}
+                    <div>Developed by <span class="font-semibold text-gray-700">Admin Myanmar Team</span></div>
+                    {{-- Version --}}
+                    <div class="font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100">
+                        Version 1.0.0
+                    </div>
+                </div>
+            </div>
+        </footer>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Element selections are only made if they exist on the page
             const menuBtn = document.getElementById('menu-btn');
             const mobileMenu = document.getElementById('mobile-menu');
             const menuOverlay = document.getElementById('menu-overlay');
@@ -211,7 +239,6 @@
                 if(userMenuDropdown) userMenuDropdown.classList.remove('dropdown-open');
             }
 
-            // Event listener for hamburger menu
             if (menuBtn) {
                 menuBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -223,7 +250,6 @@
                 });
             }
 
-            // Event listener for user profile menu
             if (userMenuButton) {
                 userMenuButton.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -235,7 +261,6 @@
                 });
             }
             
-            // Event listener to close menus when clicking outside
             window.addEventListener('click', (e) => {
                 if (userProfileContainer && !userProfileContainer.contains(e.target)) {
                     closeUserMenu();
@@ -247,14 +272,11 @@
         });
     </script>
 
-    {{-- START: Session Error Alert Script --}}
     @if (session('error'))
         <script>
-            // Controller ကပို့လိုက်တဲ့ error message ရှိရင် alert box ကိုပြပါ
             alert("{{ session('error') }}");
         </script>
     @endif
-    {{-- END: Session Error Alert Script --}}
 
     @stack('scripts')
 </body>

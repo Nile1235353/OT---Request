@@ -16,6 +16,8 @@ return new class extends Migration
             $table->string('request_id')->unique(); // ဥပမာ OT-2025-001
             $table->foreignId('supervisor_id')->constrained('users'); // users table ကိုညွှန်း
             $table->date('ot_date');
+            $table->time('start_time');
+            $table->time('end_time');
             $table->decimal('total_hours', 5, 2);
             $table->text('reason');
             $table->string('status')->default('pending'); // pending, approved, rejected, acknowledged, completed

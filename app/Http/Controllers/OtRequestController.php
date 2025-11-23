@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
+use Carbon\Carbon;
+use App\Exports\EmployeeOtExport; // <-- 1. Import Export Class
+use Maatwebsite\Excel\Facades\Excel; // <-- 2. Import Excel Facade
+use App\Models\OtAttendance;
 
 class OtRequestController extends Controller
 {
@@ -20,32 +24,71 @@ class OtRequestController extends Controller
     //     return view('pages.myOt.myot');
     // }
 
-    public function myotView()
+    /**
+     * Display the user's assigned OT jobs and total monthly hours, with filtering.
+     * * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\View\View
+     */
+    public function myotView(Request $request)
     {
         $user = Auth::user();
 
-        // 1. ဒီလအတွက် Approve ဖြစ်ပြီးသား စုစုပေါင်း OT နာရီကိုရှာခြင်း
-        $totalMonthlyHours = OtRequest::where('status', 'approved')
-            ->whereMonth('ot_date', now()->month)
-            ->whereYear('ot_date', now()->year)
+        $currentMonth = (int) $request->input('month', now()->month);
+        $currentYear = (int) $request->input('year', now()->year);
+
+        // 1. Total Approved Actual Hours Calculation
+        $approvedOtDates = OtRequest::where('status', 'approved')
+            ->whereMonth('ot_date', $currentMonth)
+            ->whereYear('ot_date', $currentYear)
             ->whereHas('assignedUsers', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
-            ->sum('total_hours');
+            ->pluck('ot_date')
+            ->unique();
 
-        // 2. Login ဝင်ထားတဲ့သူကို assign လုပ်ထားတဲ့ OT Job တွေအားလုံးကိုရှာခြင်း
-        $assignedJobs = AssignTeam::with('otRequest')
-            ->where('user_id', $user->id)
-            ->latest('created_at') // အသစ်ဆုံးကိုအပေါ်မှာထားရန်
+        $totalMonthlyHours = 0;
+        
+        // [FIX] user->employee_id အစား user->finger_print_id ကို အသုံးပြုပါ
+        // OtAttendance table ထဲမှာ Fingerprint ID (e.g., 57) နဲ့ သိမ်းထားလို့ပါ
+        if ($user->finger_print_id && $approvedOtDates->isNotEmpty()) {
+            $totalMonthlyHours = OtAttendance::where('employee_id', $user->finger_print_id)
+                ->whereIn('date', $approvedOtDates)
+                ->sum('actual_ot_hours');
+        }
+
+        // 2. Assigned OT Jobs
+        $assignedJobs = AssignTeam::where('user_id', $user->id)
+            ->whereHas('otRequest', function ($query) use ($currentMonth, $currentYear) {
+                $query->whereMonth('ot_date', $currentMonth)
+                    ->whereYear('ot_date', $currentYear);
+            })
+            ->with('otRequest')
+            ->latest('created_at')
             ->get();
-            
-        return view('pages.myOt.myot', compact('totalMonthlyHours', 'assignedJobs'));
+
+        // 3. Fingerprint Actual Data for Table View
+        $attendanceRecords = [];
+        
+        // [FIX] ဒီနေရာမှာလည်း finger_print_id ကိုပဲ သုံးပါ
+        if ($user->finger_print_id) {
+            $attendanceRecords = OtAttendance::where('employee_id', $user->finger_print_id)
+                ->whereMonth('date', $currentMonth)
+                ->whereYear('date', $currentYear)
+                ->get()
+                ->keyBy('date'); 
+        }
+
+        return view('pages.myOt.myot', compact(
+            'totalMonthlyHours', 
+            'assignedJobs', 
+            'currentMonth', 
+            'currentYear',
+            'attendanceRecords'
+        ));
     }
 
-    // "Acknowledge" button နှိပ်တာကို ကိုင်တွယ်ရန်
     public function acknowledge(AssignTeam $job)
     {
-        // Policy or check to ensure the user can only acknowledge their own job
         if ($job->user_id !== Auth::id()) {
             abort(403);
         }
@@ -86,26 +129,37 @@ class OtRequestController extends Controller
         return view('pages.requestOt.requestot', compact('supervisors', 'employees'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         // --- START: Authorization Check ---
         $user = Auth::user();
         $isManagerLevel = in_array($user->position, ['Supervisor', 'Assistant Supervisor', 'Manager']);
 
-        // User's role is NOT Admin AND their position is NOT Manager Level
         if ($user->role !== 'Admin' && !$isManagerLevel) {
             return redirect()->back()->with('error', 'You do not have permission to access this page.');
         }
         // --- END: Authorization Check ---
 
         $request->validate([
-            // 'supervisor_id' => 'required|exists:users,id',
-            'ot_date' => 'required|date',
-            'total_hours' => 'required|numeric|min:0.5',
+            // OT Date Validation: ၃ ရက်ထက် ကျော်လွန်သော ရက်ဟောင်းများကို လက်မခံပါ
+            'ot_date' => [
+                'required',
+                'date',
+                function ($attribute, $value, $fail) {
+                    $inputDate = Carbon::parse($value)->startOfDay();
+                    $limitDate = Carbon::today()->subDays(3)->startOfDay(); 
+
+                    if ($inputDate->lt($limitDate)) {
+                        $fail('လွန်ခဲ့သော ၃ ရက်ထက် ကျော်လွန်သည့် ရက်ဟောင်းများကို OT တင်ခွင့်မပြုပါ။');
+                    }
+                },
+            ],
+            
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i',
+            'total_hours' => 'required|numeric|min:0.5', 
             'requirement_type' => 'required|string',
+            'job_code' => 'nullable|string|max:50', 
             'reason' => 'required|string',
             'team_members' => 'required|array|min:1',
             'team_members.*' => 'exists:users,id',
@@ -113,23 +167,49 @@ class OtRequestController extends Controller
             'tasks.*' => 'required|string|max:255',
         ]);
 
-        // Use DB Transaction to ensure data integrity
+        // [NEW LOGIC] Check for duplicate OT requests on the same date
+        // ရွေးချယ်ထားတဲ့ ဝန်ထမ်းတွေထဲက ဒီနေ့ရက်စွဲမှာ OT ရှိပြီးသားလူ (Rejected မဟုတ်သော) ရှိမရှိ စစ်မယ်
+        $duplicateUsers = AssignTeam::whereIn('user_id', $request->team_members)
+            ->whereHas('otRequest', function ($query) use ($request) {
+                $query->where('ot_date', $request->ot_date)
+                      ->where('status', '!=', 'rejected'); // Reject ဖြစ်ပြီးသားဆိုရင်တော့ ထပ်တင်လို့ရမယ်
+            })
+            ->with('user') // နာမည်ပြဖို့ User table နဲ့ချိတ်မယ်
+            ->get()
+            ->pluck('user.name') // နာမည်တွေကိုပဲ ယူမယ်
+            ->unique()
+            ->toArray();
+
+        // တကယ်လို့ ရှိခဲ့ရင် Error ပြန်ပို့မယ်
+        if (!empty($duplicateUsers)) {
+            $names = implode(', ', $duplicateUsers);
+            return redirect()->back()
+                ->withInput() // ဖြည့်ထားတာတွေ မပျောက်အောင်
+                ->with('error', "ရွေးချယ်ထားသော ရက်စွဲ ({$request->ot_date}) တွင် အောက်ပါဝန်ထမ်းများအတွက် OT ရှိပြီးသား ဖြစ်နေပါသည်: {$names}");
+        }
+
         DB::transaction(function () use ($request) {
-            // Step 1: Create the main Overtime Request
+            
+            do {
+                $newRequestId = 'OT-' . date('Ym') . '-' . mt_rand(100, 999);
+            } while (OtRequest::where('request_id', $newRequestId)->exists());
+
             $otRequest = OtRequest::create([
-                'request_id' => 'OT-' . date('Ym') . '-' . mt_rand(100, 999), // Generate a unique ID
+                'request_id' => $newRequestId,
                 'supervisor_id' => auth()->id(),
+                'job_code' => $request->job_code,
                 'ot_date' => $request->ot_date,
-                'total_hours' => $request->total_hours,
+                'start_time' => $request->start_time,
+                'end_time' => $request->end_time, 
+                'total_hours' => $request->total_hours, 
                 'requirement_type' => $request->requirement_type,
                 'reason' => $request->reason,
-                'status' => 'pending', // Initial status
+                'status' => 'pending', 
             ]);
 
-            // Step 2: Loop through assigned members and save them to the pivot table
             foreach ($request->team_members as $memberId) {
                 if (isset($request->tasks[$memberId])) {
-                    assignTeam::create([
+                    AssignTeam::create([
                         'ot_requests_id' => $otRequest->id,
                         'user_id' => $memberId,
                         'task_description' => $request->tasks[$memberId],
@@ -297,21 +377,148 @@ class OtRequestController extends Controller
     //     return redirect()->back()->with('error', 'Only approved requests can be reversed.');
     // }
     /**
-     * Reject an OT request.
+     * Reject an OT request with a reason.
      */
-    public function reject(OtRequest $otRequest)
+    public function reject(Request $request, OtRequest $otRequest)
     {
         // --- START: Authorization Check ---
         $user = Auth::user();
         $isManagerLevel = in_array($user->position, ['Manager']);
 
-        // User's role is NOT Admin AND their position is NOT Manager Level
         if ($user->role !== 'Admin' && !$isManagerLevel) {
             return redirect()->back()->with('error', 'You do not have permission to access this page.');
         }
         // --- END: Authorization Check ---
 
-        $otRequest->update(['status' => 'rejected']);
-        return redirect()->back()->with('success', 'OT Request has been rejected.');
+        // [NEW] Validate that a remark is provided
+        $request->validate([
+            'reject_remark' => 'required|string|max:1000',
+        ]);
+
+        // Update Status AND Remark
+        $otRequest->update([
+            'status' => 'rejected',
+            'reject_remark' => $request->reject_remark, // Save the rejection reason
+        ]);
+
+        return redirect()->back()->with('success', 'OT Request has been rejected successfully.');
+    }
+
+
+    /**
+     * Display the employee OT report (Actual Data Only).
+     */
+    public function employeeOtReport(Request $request)
+    {
+        $request->validate([
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $currentUser = Auth::user();
+
+        // 2. Query Approved Assignments
+        $query = AssignTeam::with(['user', 'otRequest', 'otRequest.supervisor'])
+            ->join('ot_requests', 'assign_teams.ot_requests_id', '=', 'ot_requests.id')
+            ->join('users', 'assign_teams.user_id', '=', 'users.id')
+            ->where('ot_requests.status', 'Approved');
+
+        // Access Control Logic
+        $isSuperUser = in_array($currentUser->role, ['Admin', 'HR']) || $currentUser->position === 'General Manager';
+
+        if (!$isSuperUser) {
+            $query->where('users.location', $currentUser->location)
+                  ->where('users.department', $currentUser->department);
+        }
+
+        // 3. Apply Date Filters
+        if ($startDate) {
+            $query->where('ot_requests.ot_date', '>=', Carbon::parse($startDate)->startOfDay());
+        }
+        if ($endDate) {
+            $query->where('ot_requests.ot_date', '<=', Carbon::parse($endDate)->endOfDay());
+        }
+
+        // 4. Get Data
+        $assignedOts = $query->orderBy('ot_requests.ot_date', 'desc')
+                             ->select('assign_teams.*')
+                             ->get();
+
+        // === START: ACTUAL DATA MAPPING ===
+        $fingerPrintIds = $assignedOts->map(fn($item) => $item->user->finger_print_id)->filter()->unique();
+        $dates = $assignedOts->map(fn($item) => $item->otRequest->ot_date)->unique();
+
+        $attendanceRecords = [];
+        if ($fingerPrintIds->isNotEmpty()) {
+            $attendanceRecords = OtAttendance::whereIn('employee_id', $fingerPrintIds)
+                ->whereIn('date', $dates)
+                ->get()
+                ->keyBy(fn($item) => $item->employee_id . '_' . $item->date);
+        }
+
+        $totalActualHours = 0;
+
+        foreach ($assignedOts as $assignment) {
+            $fpId = $assignment->user->finger_print_id;
+            $otDate = $assignment->otRequest->ot_date;
+            $key = $fpId . '_' . $otDate;
+
+            if (isset($attendanceRecords[$key])) {
+                $attendance = $attendanceRecords[$key];
+                $assignment->actual_hours = $attendance->actual_ot_hours;
+                $assignment->actual_in = $attendance->check_in_time;
+                $assignment->actual_out = $attendance->check_out_time;
+                $totalActualHours += $attendance->actual_ot_hours;
+            } else {
+                $assignment->actual_hours = 0;
+                $assignment->actual_in = null;
+                $assignment->actual_out = null;
+            }
+        }
+        // === END: ACTUAL DATA MAPPING ===
+
+        return view('pages.employeeOtReport.employeeot', [
+            'assignedOts' => $assignedOts,
+            'filters' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
+            'totalHours' => $totalActualHours,
+        ]);
+    }
+
+    /**
+     * [NEW] Update Task Description
+     */
+    public function updateTask(Request $request, $id)
+    {
+        $request->validate([
+            'task_description' => 'required|string|max:255',
+        ]);
+
+        // AssignTeam model ကို ရှာပြီး update လုပ်ပါမယ်
+        // Note: $id သည် assign_teams table ၏ id ဖြစ်ရပါမည်
+        $assignment = AssignTeam::findOrFail($id);
+        
+        $assignment->update([
+            'task_description' => $request->task_description
+        ]);
+
+        return redirect()->back()->with('success', 'Task updated successfully!');
+    }
+
+    /**
+     * Handle the Excel export request.
+     */
+    public function exportEmployeeOt(Request $request)
+    {
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        $fileName = 'Employee_OT_Actual_Report_' . Carbon::now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new EmployeeOtExport($startDate, $endDate), $fileName);
     }
 }
