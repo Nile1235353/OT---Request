@@ -29,7 +29,7 @@ class OtRequest extends Model
 
     public function assignedUsers()
     {
-        return $this->hasMany(AssignTeam::class, 'ot_requests_id');
+        return $this->hasMany(assignTeam::class, 'ot_requests_id');
     }
 
     public function employees()

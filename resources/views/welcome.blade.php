@@ -1,163 +1,137 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-white">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OT Request Login</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Sign In - OT Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Poppins Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <!-- Cormorant Garamond (Serif Display Font for Title) - Added italic styles -->
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        /* Custom Styles */
-        body {
-            /* Default font is Poppins */
-            font-family: 'Poppins', sans-serif;
-            background: url("{{ asset('images/loginBackground.png') }}") no-repeat repeat; /* center fixed */
-            background-size: cover;
+        body { font-family: 'Inter', sans-serif; }
+        /* Animated Gradient Background for Left Side */
+        .animated-bg {
+            background: linear-gradient(-45deg, #4f46e5, #3b82f6, #06b6d4, #6366f1);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
         }
-        /* Special class for the Serif Display title */
-        .font-serif-display {
-            font-family: 'Cormorant Garamond', serif;
-        }
-        /* Background effect simulation */
-        .background-container {
-            position: relative;
-            overflow: hidden;
-            
-            /* TODO: Replace this placeholder URL with the actual path to your JPEG image */
-            /* background-image: url('https://placehold.co/1920x1080/000c1a/FFFFFF?text=Replace+With+Your+Background+JPEG'); */
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            
-            /* background: linear-gradient(180deg, #020024 0%, #090979 35%, #000c1a 100%); */
-        }
-        .background-container::before {
-            content: "";
-            position: absolute;
-            bottom: -60vh; /* Position it lower */
-            left: 50%;
-            transform: translateX(-50%);
-            width: 150vw; /* Make it wider */
-            height: 120vh; /* Make it taller */
-            /* This glow effect might interfere with your background image, you can remove it if needed */
-            /* background-image: radial-gradient(circle, rgba(29, 78, 216, 0.25) 10%, rgba(29, 78, 216, 0) 60%); */
-            border-radius: 50%;
-            z-index: 1;
-            pointer-events: none;
-            /* This simulates the dotted globe effect's glow */
-        }
-        /* Style for the login card to be above the glow */
-        .login-card {
-            position: relative;
-            z-index: 2;
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
     </style>
 </head>
-<body class="background-container text-gray-900">
-
-    <!-- Main Container -->
-    <div class="flex items-center justify-center min-h-screen p-4">
+<body class="h-full">
+    <div class="flex min-h-full">
         
-        <!-- Login Card -->
-        <div class="login-card bg-white w-full max-w-md p-8 sm:p-10 rounded-xl shadow-2xl">
-            
-            <!-- Logo -->
-            <div class="text-center mb-6">
-                <!-- SVG ကို PNG image tag နဲ့ အစားထိုးထားပါတယ်။ -->
-                <!-- TODO: ဒီ placeholder URL နေရာမှာ သင့်ရဲ့ PNG logo file path ကို အစားထိုးပါ။ -->
-                <img 
-                    src="{{ asset('images/loginLogo.png') }}" 
-                    alt="RGL Logo" 
-                    class="w-auto h-12 mx-auto"
-                >
+        {{-- LEFT SIDE: Form Section --}}
+        <div class="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 bg-white z-10">
+            <div class="mx-auto w-full max-w-sm lg:w-96">
+                
+                {{-- Branding / Logo --}}
+                <div>
+                    {{-- Replace src with your actual logo path --}}
+                    {{-- <img class="h-12 w-auto" src="{{ asset('images/logo.png') }}" alt="Your Company"> --}}
+                    
+                    {{-- Text Logo Fallback --}}
+                    <div class="flex items-center gap-2">
+                        <div class="h-10 w-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                            OT
+                        </div>
+                        <span class="text-2xl font-bold text-gray-900 tracking-tight">Management</span>
+                    </div>
+
+                    <h2 class="mt-8 text-2xl font-bold leading-9 tracking-tight text-gray-900">
+                        Welcome back!
+                    </h2>
+                    <p class="mt-2 text-sm leading-6 text-gray-500">
+                        Please sign in to access your dashboard.
+                    </p>
+                </div>
+
+                <div class="mt-10">
+                    <div class="mt-10">
+                        <form action="{{ route('login') }}" method="POST" class="space-y-6">
+                            @csrf
+                            
+                            {{-- Email Input --}}
+                            <div>
+                                <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Email address</label>
+                                <div class="mt-2">
+                                    <input id="email" name="email" type="email" autocomplete="email" required 
+                                        class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 transition duration-150 ease-in-out"
+                                        placeholder="admin@example.com"
+                                        value="{{ old('email') }}">
+                                </div>
+                                @error('email')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            {{-- Password Input --}}
+                            <div>
+                                <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
+                                <div class="mt-2 relative">
+                                    <input id="password" name="password" type="password" autocomplete="current-password" required 
+                                        class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 transition duration-150 ease-in-out">
+                                </div>
+                                @error('password')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            {{-- Remember Me & Forgot Password --}}
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <input id="remember-me" name="remember" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
+                                    <label for="remember-me" class="ml-3 block text-sm leading-6 text-gray-700">Remember me</label>
+                                </div>
+
+                                <div class="text-sm leading-6">
+                                    <a href="#" class="font-semibold text-indigo-600 hover:text-indigo-500 transition">Forgot password?</a>
+                                </div>
+                            </div>
+
+                            {{-- Submit Button --}}
+                            <div>
+                                <button type="submit" class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition duration-200 ease-in-out transform hover:scale-[1.01]">
+                                    Sign in
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    {{-- Sign Up Link (Optional) --}}
+                    <p class="mt-10 text-center text-sm text-gray-500">
+                        Don't have an account?
+                        <a href="#" class="font-semibold leading-6 text-indigo-600 hover:text-indigo-500 transition">Contact HR</a>
+                    </p>
+                </div>
             </div>
+        </div>
 
-            <!-- Title -->
-            <!-- Added italic class / Increased size from 2xl to 3xl -->
-            <h1 class="text-3xl text-center text-gray-700 font-serif-display italic"><strong>OT Request Login</strong></h1>
-            <!-- Added italic class / Increased size from sm to base -->
-            <p class="text-base text-gray-600 text-center mt-2 mb-8 font-light font-serif-display italic">Sign in to your account to continue.</p>
-
-            <!-- Login Form -->
-            <form action="{{ route('login') }}" method="POST">
-                @csrf
-                <div class="space-y-5">
+        {{-- RIGHT SIDE: Image/Visual Section --}}
+        <div class="relative hidden w-0 flex-1 lg:block animated-bg">
+            {{-- Optional: You can put an actual image here instead of the gradient --}}
+            {{-- <img class="absolute inset-0 h-full w-full object-cover" src="{{ asset('images/login-bg.jpg') }}" alt=""> --}}
+            
+            {{-- Decorative Pattern --}}
+            <div class="absolute inset-0 flex items-center justify-center text-white opacity-90">
+                <div class="text-center px-8">
+                    <h1 class="text-4xl font-bold tracking-tight sm:text-5xl mb-6">Manage Overtime Efficiently</h1>
+                    <p class="text-lg text-indigo-100 max-w-lg mx-auto">
+                        Streamline your workflow, track attendance with precision, and manage approvals seamlessly in one place.
+                    </p>
                     
-                    <!-- Email Field -->
-                    <div>
-                        <!-- Kept font-semibold (600 weight) for labels -->
-                        <label for="email" class="flex items-center text-sm font-semibold text-gray-800 mb-2">
-                            <!-- Mail Icon SVG -->
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-gray-500 mr-2">
-                                <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-                                <polyline points="3 7 12 13 21 7"></polyline>
-                            </svg>
-                            Email
-                        </label>
-                        <input 
-                            type="email" 
-                            id="email" 
-                            name="email"
-                            value="lmsaccount@gmail.com"
-                            class="w-full px-4 py-3 bg-slate-200 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition duration-300"
-                            required
-                        >
-                    </div>
-                    
-                    <!-- Password Field -->
-                    <div>
-                        <!-- Kept font-semibold (600 weight) for labels -->
-                        <label for="password" class="flex items-center text-sm font-semibold text-gray-800 mb-2">
-                            <!-- Lock Icon SVG -->
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-gray-500 mr-2">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                <path d="M7 11V7a5 5
-                                0 0 1 10 0v4"></path>
-                            </svg>
-                            Password
-                        </label>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password"
-                            class="w-full px-4 py-3 bg-slate-200 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition duration-300"
-                            required
-                        >
-                    </div>
-
+                    {{-- Decorative floating elements --}}
+                    <div class="absolute top-1/4 left-1/4 w-24 h-24 bg-white rounded-full opacity-10 blur-2xl animate-pulse"></div>
+                    <div class="absolute bottom-1/3 right-1/4 w-32 h-32 bg-indigo-400 rounded-full opacity-20 blur-3xl animate-bounce" style="animation-duration: 8s;"></div>
                 </div>
-
-                <!-- Forgot Password Link -->
-                <div class="text-right mt-3">
-                    <a href="#" class="text-xs text-blue-600 hover:underline">Forgot password?</a>
-                </div>
-
-                <!-- Sign In Button -->
-                <button 
-                    type="submit"
-                    class="w-full bg-blue-800 text-white p-3 rounded-lg font-semibold hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 transition duration-300 mt-8"
-                >
-                    Sign In
-                </button>
-
-                <!-- Sign Up Link -->
-                <p class="text-center text-sm text-gray-500 mt-8">
-                    Don't have an account? 
-                    <a href="#" class="font-medium text-blue-600 hover:underline">Sign up</a>
-                </p>
-
-            </form>
+            </div>
         </div>
     </div>
-
 </body>
 </html>
-
-
-

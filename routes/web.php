@@ -63,10 +63,10 @@ Route::get('/reports/employee-ot', [OtRequestController::class, 'employeeOtRepor
 Route::get('/reports/employee-ot/export', [OtRequestController::class, 'exportEmployeeOt'])->name('reports.employee_ot.export')->middleware(['auth', 'verified']);
 
 // OT Page ကြည့်ရန် (GET)
-Route::get('/ot-attendance', [OtAttendanceController::class, 'index'])->name('ot.attendance.index');
+Route::get('/ot-attendance', [OtAttendanceController::class, 'index'])->name('ot.attendance.index')->middleware(['auth', 'verified']);
 
 // Excel Import လုပ်ရန် (POST)
-Route::post('/ot-attendance/import', [OtAttendanceController::class, 'import'])->name('ot.attendance.import');
+Route::post('/ot-attendance/import', [OtAttendanceController::class, 'import'])->name('ot.attendance.import')->middleware(['auth', 'verified']);
 
 
 // OT Report Task Update Route

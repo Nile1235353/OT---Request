@@ -166,7 +166,10 @@
                         <a href="/ot-attendance" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('ot-attendance*') ? 'active' : '' }}">
                             Fingerprint Import
                         </a>
-                        
+                    @endif
+                @endauth
+                @auth
+                    @if(auth()->user()->role == ['Admin', 'HR'] || in_array(auth()->user()->position, ['Manager']))
                         <a href="/reports/employee-ot" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('reports*') ? 'active' : '' }}">OT Report</a>
                     @endif
                 @endauth 
@@ -202,10 +205,10 @@
                 </div>
                 <div class="flex items-center gap-4">
                     {{-- Developer Info or Company --}}
-                    <div>Developed by <span class="font-semibold text-gray-700">Admin Myanmar Team</span></div>
+                    <div>Developed by <span class="font-semibold text-gray-700">RGL Software team</span></div>
                     {{-- Version --}}
                     <div class="font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100">
-                        Version 1.0.0
+                        Beta Version
                     </div>
                 </div>
             </div>

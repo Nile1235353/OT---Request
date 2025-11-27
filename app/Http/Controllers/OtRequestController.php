@@ -29,6 +29,9 @@ class OtRequestController extends Controller
      * * @param \Illuminate\Http\Request $request
      * @return \Illuminate\View\View
      */
+    /**
+     * Display the user's assigned OT jobs and total monthly hours.
+     */
     public function myotView(Request $request)
     {
         $user = Auth::user();
@@ -89,7 +92,8 @@ class OtRequestController extends Controller
 
     public function acknowledge(AssignTeam $job)
     {
-        if ($job->user_id !== Auth::id()) {
+        // [FIXED] Server ပေါ်တွင် String/Integer ကွဲလွဲမှုကို ဖြေရှင်းရန် (int) ပြောင်းပြီး စစ်ဆေးပါ
+        if ((int)$job->user_id !== (int)Auth::id()) {
             abort(403);
         }
 
@@ -169,7 +173,7 @@ class OtRequestController extends Controller
 
         // [NEW LOGIC] Check for duplicate OT requests on the same date
         // ရွေးချယ်ထားတဲ့ ဝန်ထမ်းတွေထဲက ဒီနေ့ရက်စွဲမှာ OT ရှိပြီးသားလူ (Rejected မဟုတ်သော) ရှိမရှိ စစ်မယ်
-        $duplicateUsers = AssignTeam::whereIn('user_id', $request->team_members)
+        $duplicateUsers = assignTeam::whereIn('user_id', $request->team_members)
             ->whereHas('otRequest', function ($query) use ($request) {
                 $query->where('ot_date', $request->ot_date)
                       ->where('status', '!=', 'rejected'); // Reject ဖြစ်ပြီးသားဆိုရင်တော့ ထပ်တင်လို့ရမယ်
@@ -209,7 +213,7 @@ class OtRequestController extends Controller
 
             foreach ($request->team_members as $memberId) {
                 if (isset($request->tasks[$memberId])) {
-                    AssignTeam::create([
+                    assignTeam::create([
                         'ot_requests_id' => $otRequest->id,
                         'user_id' => $memberId,
                         'task_description' => $request->tasks[$memberId],
@@ -420,7 +424,7 @@ class OtRequestController extends Controller
         $currentUser = Auth::user();
 
         // 2. Query Approved Assignments
-        $query = AssignTeam::with(['user', 'otRequest', 'otRequest.supervisor'])
+        $query = assignTeam::with(['user', 'otRequest', 'otRequest.supervisor'])
             ->join('ot_requests', 'assign_teams.ot_requests_id', '=', 'ot_requests.id')
             ->join('users', 'assign_teams.user_id', '=', 'users.id')
             ->where('ot_requests.status', 'Approved');
@@ -500,7 +504,7 @@ class OtRequestController extends Controller
 
         // AssignTeam model ကို ရှာပြီး update လုပ်ပါမယ်
         // Note: $id သည် assign_teams table ၏ id ဖြစ်ရပါမည်
-        $assignment = AssignTeam::findOrFail($id);
+        $assignment = assignTeam::findOrFail($id);
         
         $assignment->update([
             'task_description' => $request->task_description
