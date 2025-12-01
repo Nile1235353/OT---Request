@@ -117,10 +117,13 @@ class OtRequestController extends Controller
         // --- START: Authorization Check ---
         $user = Auth::user();
         
-        // Role/Position စစ်ဆေးခြင်း သို့မဟုတ် can_request_ot permission ရှိမရှိ စစ်ဆေးခြင်း
+        // Role/Position စစ်ဆေးခြင်း
         $isManagerLevel = in_array($user->position, ['Supervisor', 'Assistant Supervisor', 'Manager']);
+        
+        // can_request_ot permission ရှိမရှိ စစ်ဆေးခြင်း (1 ဖြစ်မှ ခွင့်ပြုမည်)
         $hasPermission = $user->can_request_ot == 1;
 
+        // Admin မဟုတ်၊ Manager Level မဟုတ်၊ Permission လည်းမရှိလျှင် ပိတ်မည်
         if ($user->role !== 'Admin' && !$isManagerLevel && !$hasPermission) {
             return redirect()->back()->with('error', 'You do not have permission to access this page.');
         }
@@ -132,16 +135,7 @@ class OtRequestController extends Controller
         // Initial employees (Logged in user's dept)
         $employees = User::where('department', $user->department)->get();
 
-        // [NEW] Login ဝင်ထားတဲ့ User ရဲ့ Department တစ်ခုလုံးက တင်ထားတဲ့ Request အားလုံးကို ဆွဲထုတ်ခြင်း
-        // Logic: Request တင်သူ (Supervisor) ရဲ့ Department သည် Current User Department နှင့် တူညီရမည်။
-        $myRequests = OtRequest::whereHas('supervisor', function($query) use ($user) {
-                        $query->where('department', $user->department);
-                    })
-                    ->with('supervisor') // Supervisor နာမည်ပြချင်ရင် သုံးရန်
-                    ->orderBy('ot_date', 'desc') // OT Date အလိုက် စီပါမည် (အသစ်ဆုံး အပေါ်)
-                    ->limit(50) // အရမ်းများရင် Load ကြာမှာစိုးလို့ Recent 50 ခုပဲ ယူထားပါတယ်
-                    ->get();
-
+        // Login ဝင်ထားတဲ့ User ရဲ့ Department တစ်ခုလုံးက တင်ထားတဲ့ Request အားလုံးကို ဆွဲထုတ်ခြင်း
         $query = OtRequest::whereHas('supervisor', function($q) use ($user) {
             $q->where('department', $user->department);
         });
@@ -172,10 +166,8 @@ class OtRequestController extends Controller
     {
         $dept = $request->department;
         if($dept == 'All') {
-            // [UPDATED] Added 'department' to select
             $employees = User::all(['id', 'name', 'employee_id', 'department']);
         } else {
-            // [UPDATED] Added 'department' to select
             $employees = User::where('department', $dept)->get(['id', 'name', 'employee_id', 'department']);
         }
         return response()->json($employees);
@@ -185,10 +177,16 @@ class OtRequestController extends Controller
     {
         // Authorization Check
         $user = Auth::user();
+        
+        // Position စစ်ဆေးခြင်း
         $isManagerLevel = in_array($user->position, ['Supervisor', 'Assistant Supervisor', 'Manager']);
+        
+        // [ပြင်ဆင်ချက်] can_request_ot permission ရှိမရှိ စစ်ဆေးခြင်း
+        $hasPermission = $user->can_request_ot == 1;
 
-        if ($user->role !== 'Admin' && !$isManagerLevel) {
-            return redirect()->back()->with('error', 'You do not have permission to access this page.');
+        // Admin မဟုတ်၊ Manager Level မဟုတ်၊ Permission လည်းမရှိလျှင် Submit လုပ်ခွင့်မရှိပါ
+        if ($user->role !== 'Admin' && !$isManagerLevel && !$hasPermission) {
+            return redirect()->back()->with('error', 'You do not have permission to perform this action.');
         }
 
         $request->validate([
