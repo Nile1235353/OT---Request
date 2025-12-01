@@ -17,6 +17,7 @@ class OtRequest extends Model
         'end_time',
         'total_hours',
         'requirement_type',
+        'customer_name',
         'reason',
         'status',
         'reject_remark',

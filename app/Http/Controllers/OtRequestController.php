@@ -114,38 +114,84 @@ class OtRequestController extends Controller
      */
     public function create()
     {
-
         // --- START: Authorization Check ---
         $user = Auth::user();
+        
+        // Role/Position စစ်ဆေးခြင်း သို့မဟုတ် can_request_ot permission ရှိမရှိ စစ်ဆေးခြင်း
         $isManagerLevel = in_array($user->position, ['Supervisor', 'Assistant Supervisor', 'Manager']);
+        $hasPermission = $user->can_request_ot == 1;
 
-        // User's role is NOT Admin AND their position is NOT Manager Level
-        if ($user->role !== 'Admin' && !$isManagerLevel) {
+        if ($user->role !== 'Admin' && !$isManagerLevel && !$hasPermission) {
             return redirect()->back()->with('error', 'You do not have permission to access this page.');
         }
         // --- END: Authorization Check ---
 
-        // Get users with specific roles to populate dropdowns
-        $supervisors = User::whereIn('position', ['supervisor', 'manager'])->get();
-        $userDepartment = Auth::user()->department;
-        $employees = User::where('department', $userDepartment)->get();
+        // Dropdown Lists
+        $departments = User::distinct()->pluck('department')->filter();
+        
+        // Initial employees (Logged in user's dept)
+        $employees = User::where('department', $user->department)->get();
 
-        return view('pages.requestOt.requestot', compact('supervisors', 'employees'));
+        // [NEW] Login ဝင်ထားတဲ့ User ရဲ့ Department တစ်ခုလုံးက တင်ထားတဲ့ Request အားလုံးကို ဆွဲထုတ်ခြင်း
+        // Logic: Request တင်သူ (Supervisor) ရဲ့ Department သည် Current User Department နှင့် တူညီရမည်။
+        $myRequests = OtRequest::whereHas('supervisor', function($query) use ($user) {
+                        $query->where('department', $user->department);
+                    })
+                    ->with('supervisor') // Supervisor နာမည်ပြချင်ရင် သုံးရန်
+                    ->orderBy('ot_date', 'desc') // OT Date အလိုက် စီပါမည် (အသစ်ဆုံး အပေါ်)
+                    ->limit(50) // အရမ်းများရင် Load ကြာမှာစိုးလို့ Recent 50 ခုပဲ ယူထားပါတယ်
+                    ->get();
+
+        $query = OtRequest::whereHas('supervisor', function($q) use ($user) {
+            $q->where('department', $user->department);
+        });
+
+        // Apply Filters
+        if (request('filter_month')) {
+            $query->whereMonth('ot_date', request('filter_month'));
+        }
+        if (request('filter_year')) {
+            $query->whereYear('ot_date', request('filter_year'));
+        }
+        if (request('filter_request_id')) {
+            $query->where('request_id', 'like', '%' . request('filter_request_id') . '%');
+        }
+        if (request('filter_customer')) {
+            $query->where('customer_name', 'like', '%' . request('filter_customer') . '%');
+        }
+
+        $myRequests = $query->with('supervisor')
+            ->orderBy('ot_date', 'desc')
+            ->limit(50)
+            ->get();
+
+        return view('pages.requestOt.requestot', compact('departments', 'employees', 'myRequests'));
+    }
+
+    public function getEmployeesByDept(Request $request)
+    {
+        $dept = $request->department;
+        if($dept == 'All') {
+            // [UPDATED] Added 'department' to select
+            $employees = User::all(['id', 'name', 'employee_id', 'department']);
+        } else {
+            // [UPDATED] Added 'department' to select
+            $employees = User::where('department', $dept)->get(['id', 'name', 'employee_id', 'department']);
+        }
+        return response()->json($employees);
     }
 
     public function store(Request $request)
     {
-        // --- START: Authorization Check ---
+        // Authorization Check
         $user = Auth::user();
         $isManagerLevel = in_array($user->position, ['Supervisor', 'Assistant Supervisor', 'Manager']);
 
         if ($user->role !== 'Admin' && !$isManagerLevel) {
             return redirect()->back()->with('error', 'You do not have permission to access this page.');
         }
-        // --- END: Authorization Check ---
 
         $request->validate([
-            // OT Date Validation: ၃ ရက်ထက် ကျော်လွန်သော ရက်ဟောင်းများကို လက်မခံပါ
             'ot_date' => [
                 'required',
                 'date',
@@ -158,11 +204,11 @@ class OtRequestController extends Controller
                     }
                 },
             ],
-            
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i',
             'total_hours' => 'required|numeric|min:0.5', 
             'requirement_type' => 'required|string',
+            'customer_name' => 'nullable|string|max:100',
             'job_code' => 'nullable|string|max:50', 
             'reason' => 'required|string',
             'team_members' => 'required|array|min:1',
@@ -171,29 +217,26 @@ class OtRequestController extends Controller
             'tasks.*' => 'required|string|max:255',
         ]);
 
-        // [NEW LOGIC] Check for duplicate OT requests on the same date
-        // ရွေးချယ်ထားတဲ့ ဝန်ထမ်းတွေထဲက ဒီနေ့ရက်စွဲမှာ OT ရှိပြီးသားလူ (Rejected မဟုတ်သော) ရှိမရှိ စစ်မယ်
+        // Duplicate Check
         $duplicateUsers = assignTeam::whereIn('user_id', $request->team_members)
             ->whereHas('otRequest', function ($query) use ($request) {
                 $query->where('ot_date', $request->ot_date)
-                      ->where('status', '!=', 'rejected'); // Reject ဖြစ်ပြီးသားဆိုရင်တော့ ထပ်တင်လို့ရမယ်
+                      ->where('status', '!=', 'rejected'); 
             })
-            ->with('user') // နာမည်ပြဖို့ User table နဲ့ချိတ်မယ်
+            ->with('user') 
             ->get()
-            ->pluck('user.name') // နာမည်တွေကိုပဲ ယူမယ်
+            ->pluck('user.name') 
             ->unique()
             ->toArray();
 
-        // တကယ်လို့ ရှိခဲ့ရင် Error ပြန်ပို့မယ်
         if (!empty($duplicateUsers)) {
             $names = implode(', ', $duplicateUsers);
             return redirect()->back()
-                ->withInput() // ဖြည့်ထားတာတွေ မပျောက်အောင်
+                ->withInput() 
                 ->with('error', "ရွေးချယ်ထားသော ရက်စွဲ ({$request->ot_date}) တွင် အောက်ပါဝန်ထမ်းများအတွက် OT ရှိပြီးသား ဖြစ်နေပါသည်: {$names}");
         }
 
         DB::transaction(function () use ($request) {
-            
             do {
                 $newRequestId = 'OT-' . date('Ym') . '-' . mt_rand(100, 999);
             } while (OtRequest::where('request_id', $newRequestId)->exists());
@@ -202,6 +245,7 @@ class OtRequestController extends Controller
                 'request_id' => $newRequestId,
                 'supervisor_id' => auth()->id(),
                 'job_code' => $request->job_code,
+                'customer_name' => $request->customer_name,
                 'ot_date' => $request->ot_date,
                 'start_time' => $request->start_time,
                 'end_time' => $request->end_time, 
@@ -414,43 +458,65 @@ class OtRequestController extends Controller
      */
     public function employeeOtReport(Request $request)
     {
+        $currentUser = Auth::user();
+
+        // 1. Authorization Check (Gatekeeper)
+        // Admin, HR, Management Roles သို့မဟုတ် Manager Position ရှိသူများသာ ဝင်ကြည့်ခွင့်ရှိသည်။
+        $authorizedRoles = ['Admin', 'HR', 'Management'];
+        $isManagerPosition = $currentUser->position === 'Manager';
+
+        if (!in_array($currentUser->role, $authorizedRoles) && !$isManagerPosition) {
+            return redirect()->back()->with('error', 'You do not have permission to access this report.');
+        }
+
         $request->validate([
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
+            'department' => 'nullable|string',
+            'requirement_type' => 'nullable|string',
         ]);
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
-        $currentUser = Auth::user();
+        $department = $request->input('department');
+        $requirementType = $request->input('requirement_type');
 
-        // 2. Query Approved Assignments
+        // 2. Base Query
         $query = assignTeam::with(['user', 'otRequest', 'otRequest.supervisor'])
             ->join('ot_requests', 'assign_teams.ot_requests_id', '=', 'ot_requests.id')
             ->join('users', 'assign_teams.user_id', '=', 'users.id')
             ->where('ot_requests.status', 'Approved');
 
-        // Access Control Logic
-        $isSuperUser = in_array($currentUser->role, ['Admin', 'HR']) || $currentUser->position === 'General Manager';
-
-        if (!$isSuperUser) {
-            $query->where('users.location', $currentUser->location)
-                  ->where('users.department', $currentUser->department);
+        // 3. Data Filtering Logic
+        // Admin/HR/Management မဟုတ်ရင် (ဆိုလိုတာက Manager Position သမားဖြစ်နေရင်) သူ့ Department ပဲ ပြမယ်
+        if (!in_array($currentUser->role, $authorizedRoles)) {
+            $query->where('users.department', $currentUser->department);
         }
 
-        // 3. Apply Date Filters
+        // 4. Apply Filters
         if ($startDate) {
             $query->where('ot_requests.ot_date', '>=', Carbon::parse($startDate)->startOfDay());
         }
         if ($endDate) {
             $query->where('ot_requests.ot_date', '<=', Carbon::parse($endDate)->endOfDay());
         }
+        
+        // Department Filter (Dropdown က ရွေးလိုက်ရင် ထပ်စစ်မယ်)
+        if ($department) {
+            $query->where('users.department', $department);
+        }
+        
+        if ($requirementType) {
+            $query->where('ot_requests.requirement_type', $requirementType);
+        }
 
-        // 4. Get Data
-        $assignedOts = $query->orderBy('ot_requests.ot_date', 'desc')
-                             ->select('assign_teams.*')
-                             ->get();
+        // 5. Get Data
+        $assignedOts = $query->orderBy('ot_requests.ot_date', 'desc')->select('assign_teams.*')->get();
 
-        // === START: ACTUAL DATA MAPPING ===
+        // Dropdown Data
+        $requirementTypes = OtRequest::distinct()->pluck('requirement_type')->filter()->values();
+
+        // 6. Actual Data Mapping
         $fingerPrintIds = $assignedOts->map(fn($item) => $item->user->finger_print_id)->filter()->unique();
         $dates = $assignedOts->map(fn($item) => $item->otRequest->ot_date)->unique();
 
@@ -463,7 +529,6 @@ class OtRequestController extends Controller
         }
 
         $totalActualHours = 0;
-
         foreach ($assignedOts as $assignment) {
             $fpId = $assignment->user->finger_print_id;
             $otDate = $assignment->otRequest->ot_date;
@@ -481,15 +546,17 @@ class OtRequestController extends Controller
                 $assignment->actual_out = null;
             }
         }
-        // === END: ACTUAL DATA MAPPING ===
 
         return view('pages.employeeOtReport.employeeot', [
             'assignedOts' => $assignedOts,
             'filters' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate,
+                'department' => $department,
+                'requirement_type' => $requirementType,
             ],
             'totalHours' => $totalActualHours,
+            'requirementTypes' => $requirementTypes,
         ]);
     }
 
@@ -518,11 +585,22 @@ class OtRequestController extends Controller
      */
     public function exportEmployeeOt(Request $request)
     {
+        // Export မထုတ်ခင် Permission အရင်စစ်ပါတယ်
+        $currentUser = Auth::user();
+        $authorizedRoles = ['Admin', 'HR', 'Management'];
+        $isManager = $currentUser->position === 'Manager';
+
+        if (!in_array($currentUser->role, $authorizedRoles) && !$isManager) {
+             return redirect()->back()->with('error', 'You do not have permission to export.');
+        }
+
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
+        $department = $request->input('department'); // [NEW] Get department
+        $requirementType = $request->input('requirement_type'); // [NEW] Get requirement type
 
         $fileName = 'Employee_OT_Actual_Report_' . Carbon::now()->format('Ymd_His') . '.xlsx';
 
-        return Excel::download(new EmployeeOtExport($startDate, $endDate), $fileName);
+        return Excel::download(new EmployeeOtExport($startDate, $endDate, $department), $fileName);
     }
 }

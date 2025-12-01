@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\OtAttendance;
+use App\Models\User; // [NEW] User Model ထည့်ရန်
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -21,19 +22,23 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
 
     public function model(array $row)
     {
-        // Excel Header များနှင့် Database Field များကို ချိတ်ဆက်ခြင်း
-        // CSV Header: "Emp ID" -> Slug: "emp_id"
-        
         // ID မပါရင် (သို့) Date မပါရင် ကျော်သွားမယ်
         if (!isset($row['emp_id']) || !isset($row['date'])) {
             return null;
         }
 
+        // [NEW] User ကို Employee ID ဖြင့်ရှာပြီး Morning OT ခွင့်ပြုချက် ရှိ/မရှိ စစ်ဆေးခြင်း
+        $user = User::where('finger_print_id', $row['emp_id'])->first();
+        
+        // User မရှိရင် (သို့) morning_ot က 0 (false) ဖြစ်နေရင် Morning OT မတွက်ဘူး
+        $allowMorningOt = $user ? $user->morning_ot : false;
+
         $date = $this->transformDate($row['date']);
         $checkIn  = $this->transformTime($row['check_in']);
         $checkOut = $this->transformTime($row['check_out']);
 
-        $otHours = $this->calculateOtHours($checkIn, $checkOut);
+        // [UPDATED] calculateOtHours သို့ $allowMorningOt ပါ ထည့်ပေးလိုက်သည်
+        $otHours = $this->calculateOtHours($checkIn, $checkOut, $allowMorningOt);
 
         return OtAttendance::updateOrCreate(
             [
@@ -53,11 +58,9 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
     {
         if (!$value) return null;
         try {
-            // Excel Serial Number (e.g., 45352)
             if (is_numeric($value)) {
                 return Date::excelToDateTimeObject($value)->format('Y-m-d');
             }
-            // CSV String Format
             return Carbon::parse($value)->format('Y-m-d');
         } catch (\Exception $e) {
             return null;
@@ -68,11 +71,9 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
     {
         if (!$value) return null;
         try {
-            // Excel Serial Number
             if (is_numeric($value)) {
                 return Date::excelToDateTimeObject($value)->format('H:i:s');
             }
-            // String Time
             return Carbon::parse($value)->format('H:i:s');
         } catch (\Exception $e) {
             return null;
@@ -80,11 +81,11 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
     }
 
     // === OT Calculation Logic (Minute-based) ===
-    private function calculateOtHours($in, $out)
+    private function calculateOtHours($in, $out, $allowMorningOt)
     {
         if (!$in || !$out) return 0;
 
-        // $officeStartMin = $this->timeToMinutes($this->officeStartTime); // Morning OT မတွက်တော့လို့ မလိုတော့ပါ
+        $officeStartMin = $this->timeToMinutes($this->officeStartTime);
         $officeEndMin   = $this->timeToMinutes($this->officeEndTime);
         
         $checkInMin     = $this->timeToMinutes($in);
@@ -95,20 +96,24 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
             $checkOutMin += 1440; 
         }
 
+        $morningOt = 0;
         $eveningOt = 0;
 
-        /* ၁။ မနက်ပိုင်း OT (ဖယ်ရှားထားသည်)
-           Requirement: "Check in မှာ ရှိတဲ့ ပိုတဲ့ အချိန်ကို မတွက်ချင်ပါဘူး"
-           ထို့ကြောင့် Morning OT logic ကို ပိတ်ထားလိုက်ပါပြီ။
-        */
+        // ၁။ မနက်ပိုင်း OT (Permission ရှိမှ တွက်မည်)
+        if ($allowMorningOt) {
+            // CheckIn က OfficeStart ထက် စောရောက်နေရင်
+            if ($checkInMin < $officeStartMin) {
+                $morningOt = ($officeStartMin - $checkInMin) / 60;
+            }
+        }
 
         // ၂။ ညနေပိုင်း OT (ရုံးဆင်းချိန် ကျော်လွန်သော အချိန်များ)
         if ($checkOutMin > $officeEndMin) {
             $eveningOt = ($checkOutMin - $officeEndMin) / 60;
         }
 
-        // စုစုပေါင်း OT (ညနေပိုင်း OT သီးသန့်)
-        $totalOt = $eveningOt;
+        // စုစုပေါင်း OT
+        $totalOt = $morningOt + $eveningOt;
 
         return max(0, round($totalOt, 2));
     }

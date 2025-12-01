@@ -28,6 +28,8 @@ class User extends Authenticatable
         'role',
         'department',
         'position',
+        'can_request_ot',
+        'morning_ot',
     ];
 
     /**

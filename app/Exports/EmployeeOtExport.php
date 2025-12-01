@@ -2,8 +2,7 @@
 
 namespace App\Exports;
 
-// ... existing imports ...
-use App\Models\AssignTeam;
+use App\Models\assignTeam;
 use App\Models\OtAttendance;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -16,21 +15,25 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class EmployeeOtExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles
 {
-    // ... existing constructor & collection method ...
     protected $startDate;
     protected $endDate;
+    protected $department;
+    protected $requirementType; // [NEW] Property
 
-    public function __construct($startDate, $endDate)
+    // [UPDATED] Constructor
+    public function __construct($startDate, $endDate, $department = null, $requirementType = null)
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
+        $this->department = $department;
+        $this->requirementType = $requirementType;
     }
 
     public function collection()
     {
         $currentUser = Auth::user();
-        // Query
-        $query = AssignTeam::with(['user', 'otRequest', 'otRequest.supervisor'])
+        
+        $query = assignTeam::with(['user', 'otRequest', 'otRequest.supervisor'])
             ->join('ot_requests', 'assign_teams.ot_requests_id', '=', 'ot_requests.id')
             ->join('users', 'assign_teams.user_id', '=', 'users.id')
             ->where('ot_requests.status', 'Approved');
@@ -42,17 +45,25 @@ class EmployeeOtExport implements FromCollection, WithHeadings, WithMapping, Sho
                   ->where('users.department', $currentUser->department);
         }
 
-        // Date Filter
+        // Filters
         if ($this->startDate) {
             $query->where('ot_requests.ot_date', '>=', Carbon::parse($this->startDate)->startOfDay());
         }
         if ($this->endDate) {
             $query->where('ot_requests.ot_date', '<=', Carbon::parse($this->endDate)->endOfDay());
         }
+        if ($this->department) {
+            $query->where('users.department', $this->department);
+        }
+        
+        // [NEW] Requirement Type Filter
+        if ($this->requirementType) {
+            $query->where('ot_requests.requirement_type', $this->requirementType);
+        }
 
         $assignedOts = $query->orderBy('ot_requests.ot_date', 'desc')->select('assign_teams.*')->get();
 
-        // Map Actual Data (Similar to Controller logic)
+        // Map Actual Data (Unchanged)
         $fingerPrintIds = $assignedOts->map(fn($item) => $item->user->finger_print_id)->filter()->unique();
         $dates = $assignedOts->map(fn($item) => $item->otRequest->ot_date)->unique();
 
@@ -88,7 +99,9 @@ class EmployeeOtExport implements FromCollection, WithHeadings, WithMapping, Sho
     {
         return [
             'OT Date',
-            'Job Code', // [NEW] Added Column Header
+            'Job Code',
+            'Requirement', // [NEW] Header
+            'Department',
             'Employee',
             'FP ID',
             'Supervisor',
@@ -105,10 +118,12 @@ class EmployeeOtExport implements FromCollection, WithHeadings, WithMapping, Sho
     {
         return [
             Carbon::parse($item->otRequest->ot_date)->format('d-M-Y'),
-            
-            // [NEW] Job Code Mapping
             $item->otRequest->job_code ?? '-',
+            
+            // [NEW] Map Requirement Type
+            $item->otRequest->requirement_type ?? '-',
 
+            $item->user->department ?? '-',
             $item->user->name ?? 'N/A',
             $item->user->finger_print_id ?? '-',
             $item->otRequest->supervisor->name ?? 'N/A',
