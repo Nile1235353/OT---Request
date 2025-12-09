@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
+use App\Models\assignTeam;
 
 class OtRequest extends Model
 {
@@ -26,6 +28,12 @@ class OtRequest extends Model
     public function supervisor()
     {
         return $this->belongsTo(User::class, 'supervisor_id');
+    }
+
+    public function assignTeams()
+    {
+        // 'ot_requests_id' is the foreign key in the 'assign_teams' table
+        return $this->hasMany(assignTeam::class, 'ot_requests_id', 'id');
     }
 
     public function assignedUsers()

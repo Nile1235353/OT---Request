@@ -154,7 +154,7 @@ class OtRequestController extends Controller
             $query->where('customer_name', 'like', '%' . request('filter_customer') . '%');
         }
 
-        $myRequests = $query->with('supervisor')
+        $myRequests = $query->with(['supervisor', 'assignTeams.user']) 
             ->orderBy('ot_date', 'desc')
             ->limit(50)
             ->get();
@@ -271,83 +271,103 @@ class OtRequestController extends Controller
 
     /**
      * Display the OT approval page with pending and history requests.
-     * (ဒါက သင်ထည့်ခိုင်းတဲ့ function အသစ်ပါ)
      */
     public function otApprove(): View|RedirectResponse
     {
-        // --- START: Authorization Check ---
         $user = Auth::user();
-        $isManagerLevel = in_array($user->position, ['Manager', 'Admin', 'HR']); // Allow Admin and HR too
+        
+        // Admin Check (Admin sees everything as a backup)
+        $isAdmin = strtolower($user->role ?? '') === 'admin';
 
-        if ($user->role !== 'Admin' && !$isManagerLevel) {
-            return redirect()->back()->with('error', 'You do not have permission to access this page.');
-        }
-        // --- END: Authorization Check ---
-
-        // 1. Fetch PENDING requests FROM THE SAME DEPARTMENT
-        $pendingRequests = OtRequest::with('supervisor', 'assignedUsers.user')
+        // --- 1. Fetch PENDING requests ---
+        $pendingRequests = OtRequest::with('supervisor.approvers', 'assignedUsers.user')
             ->where('status', 'pending')
-            // This condition filters requests based on the requester's department
-            ->whereHas('supervisor', function ($query) use ($user) {
-                $query->where('department', $user->department);
-            }) // <-- Add this block
+            // [Global Rule] Self-Approval Prevention: ကိုယ့် Request ကိုယ် ဘယ်တော့မှ မမြင်ရစေရ
+            ->where('supervisor_id', '!=', $user->id)
+            ->where(function ($query) use ($user, $isAdmin) {
+                
+                // (A) Strict Approver Check
+                // Requester (supervisor) ရဲ့ Approver စာရင်းထဲမှာ ကိုယ်ပါမှ မြင်ရမယ်။
+                // [FIXED] 'id' ambiguity error ကို ရှောင်ရန် table name ဖြင့် တိကျစွာ ညွှန်းဆိုပါသည်
+                $query->whereHas('supervisor.approvers', function ($q) use ($user) {
+                    $q->where('approver_user.approver_id', $user->id); 
+                });
+
+                // (B) Admin Override (Optional: Admin always sees all)
+                if ($isAdmin) {
+                    $query->orWhereRaw('1 = 1');
+                }
+            })
             ->latest()
             ->get();
 
-        // 2. Fetch HISTORY requests FROM THE SAME DEPARTMENT
+
+        // --- 2. Fetch HISTORY requests ---
         $historyRequests = OtRequest::with('supervisor')
             ->whereIn('status', ['approved', 'rejected'])
-            // This condition filters requests based on the requester's department
-            ->whereHas('supervisor', function ($query) use ($user) {
-                $query->where('department', $user->department);
-            }) // <-- Add this block
+            ->where(function ($query) use ($user, $isAdmin) {
+                // (A) History for Explicit Approver
+                // [FIXED] 'id' ambiguity error fix
+                $query->whereHas('supervisor.approvers', function ($q) use ($user) {
+                    $q->where('approver_user.approver_id', $user->id);
+                });
+
+                // (B) Admin sees all history
+                if ($isAdmin) {
+                    $query->orWhereRaw('1 = 1');
+                }
+            })
             ->latest()
-            ->take(10) 
+            ->take(10)
             ->get();
 
-        // 3. --- ADDED ---
-        // Login ဝင်ထားသူရဲ့ department ထဲက user တွေ အကုန်လုံးကို ဆွဲထုတ်ပါမယ်။
-        // ဒါကို "Add New User" modal dropdown မှာ သုံးပါမယ်။
+        // --- 3. Add New User Dropdown List ---
+        // For adding new users during approval (shows users from Approver's dept or Requester's dept? 
+        // Usually, showing users from Current User's department makes sense for assignment)
         $allUsers = User::where('department', $user->department)
+                        ->where('status', 'active')
                         ->orderBy('name', 'asc')
                         ->get();
 
-        // 4. --- MODIFIED ---
-        // $allUsers ကို view ဆီသို့ ထည့်ပို့ပေးပါမယ်။
         return view('pages.approveOt.approveot', compact('pendingRequests', 'historyRequests', 'allUsers'));
     }
 
-
     /**
      * Approve an OT request with potential modifications to assigned users.
-     * (ဒါက မူလရှိပြီးသား approve logic function ပါ)
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\OtRequest  $otRequest
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function approve(Request $request, OtRequest $otRequest)
     {
-        // --- START: Authorization Check ---
         $user = Auth::user();
-        $isManagerLevel = in_array($user->position, ['Manager']);
+        
+        // --- START: Authorization Check ---
+        
+        // 1. Is Explicit Approver?
+        // OT တင်တဲ့လူ (supervisor) ရဲ့ approvers ထဲမှာ လက်ရှိ user (Auth::user) ပါလား စစ်ပါတယ်။
+        // [FIXED] 'id' ambiguity error fix using pivot column
+        $isExplicitApprover = $otRequest->supervisor->approvers()
+                                        ->where('approver_user.approver_id', $user->id)
+                                        ->exists();
 
-        // User's role is NOT Admin AND their position is NOT Manager Level
-        if ($user->role !== 'Admin' && !$isManagerLevel) {
-            return redirect()->back()->with('error', 'You do not have permission to access this page.');
+        // 2. Is Admin?
+        $isAdmin = (strtolower($user->role ?? '') === 'admin');
+
+        // 3. Not Self
+        $isNotSelf = ($otRequest->supervisor_id !== $user->id);
+
+        // Strict Logic: Must be Not Self AND (Admin OR Explicit Approver)
+        // Department Logic တွေ Manager Logic တွေ မထည့်တော့ပါ။
+        if (!$isNotSelf || (! $isAdmin && ! $isExplicitApprover)) {
+            return redirect()->back()->with('error', 'You do not have permission to approve this request.');
         }
         // --- END: Authorization Check ---
 
-        // --- START: Update Logic from Modal Form ---
 
-        // 1. Update or Remove existing users
+        // --- START: Update Logic from Modal Form ---
         if ($request->has('users')) {
             foreach ($request->users as $userId => $data) {
-                
                 $assignedUser = assignTeam::where('ot_requests_id', $otRequest->id)
-                                            ->where('user_id', $userId)
-                                            ->first();
-                
+                                          ->where('user_id', $userId)
+                                          ->first();
                 if ($assignedUser) {
                     if (isset($data['remove']) && $data['remove'] == '1') {
                         $assignedUser->delete();
@@ -359,15 +379,9 @@ class OtRequestController extends Controller
             }
         }
 
-        // 2. --- MODIFIED: Add new users (plural) ---
-        // Logic ကို `exists()` check အစား ပိုမိုစိတ်ချရသော `updateOrCreate` ဖြင့် ပြောင်းလဲထားပါသည်။
         if ($request->has('new_users')) {
             foreach ($request->new_users as $userId => $data) {
-                // Ensure task is not empty and ID is valid
                 if (!empty($data['id']) && !empty($data['task_description'])) {
-                    
-                    // User ရှိ၊ မရှိ စစ်ဆေးပြီး မရှိလျှင် အသစ်ထည့်၊ ရှိလျှင် update လုပ်ပါမည်။
-                    // (Soft-deleted ဖြစ်နေခဲ့လျှင်လည်း ၎င်းကို update လုပ်ပေးနိုင်ပါသည်)
                     assignTeam::updateOrCreate(
                         [
                             'ot_requests_id' => $otRequest->id,
@@ -375,81 +389,50 @@ class OtRequestController extends Controller
                         ],
                         [
                             'task_description' => $data['task_description'],
-                            // If your model uses soft deletes, ensure 'deleted_at' is null
-                            // 'deleted_at' => null 
                         ]
                     );
                 }
             }
         }
 
-        // 3. Finally, approve the main request
         $otRequest->status = 'approved';
-        // $otRequest->approved_by = $user->id; 
         $otRequest->save();
-
-        // --- END: Update Logic ---
 
         return redirect()->back()->with('success', 'OT Request has been approved with changes.');
     }
 
-    // --- ADDED: New function to reverse approval ---
-    /**
-     * Reverse an approved OT request back to rejected.
-     *
-     * @param  \App\Models\OtRequest  $otRequest
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    // public function reject(OtRequest $otRequest)
-    // {
-    //     // --- START: Authorization Check ---
-    //     $user = Auth::user();
-    //     $isManagerLevel = in_array($user->position, ['Manager', 'Admin', 'HR']);
-
-    //     if ($user->role !== 'Admin' && !$isManagerLevel) {
-    //         return redirect()->back()->with('error', 'You do not have permission to access this page.');
-    //     }
-    //     // --- END: Authorization Check ---
-
-    //     // Only approved requests can be reversed
-    //     if ($otRequest->status == 'approved') {
-    //         $otRequest->status = 'rejected';
-    //         // $otRequest->approved_by = null; // Optional: clear who approved it
-    //         $otRequest->save();
-            
-    //         return redirect()->back()->with('success', 'OT approval has been reversed and set to rejected.');
-    //     }
-
-    //     return redirect()->back()->with('error', 'Only approved requests can be reversed.');
-    // }
     /**
      * Reject an OT request with a reason.
      */
     public function reject(Request $request, OtRequest $otRequest)
     {
-        // --- START: Authorization Check ---
         $user = Auth::user();
-        $isManagerLevel = in_array($user->position, ['Manager']);
 
-        if ($user->role !== 'Admin' && !$isManagerLevel) {
-            return redirect()->back()->with('error', 'You do not have permission to access this page.');
+        // --- START: Authorization Check ---
+        // [FIXED] 'id' ambiguity error fix
+        $isExplicitApprover = $otRequest->supervisor->approvers()
+                                        ->where('approver_user.approver_id', $user->id)
+                                        ->exists();
+                                        
+        $isAdmin = (strtolower($user->role ?? '') === 'admin');
+        $isNotSelf = ($otRequest->supervisor_id !== $user->id);
+
+        if (!$isNotSelf || (! $isAdmin && ! $isExplicitApprover)) {
+            return redirect()->back()->with('error', 'You do not have permission to reject this request.');
         }
         // --- END: Authorization Check ---
 
-        // [NEW] Validate that a remark is provided
         $request->validate([
             'reject_remark' => 'required|string|max:1000',
         ]);
 
-        // Update Status AND Remark
         $otRequest->update([
             'status' => 'rejected',
-            'reject_remark' => $request->reject_remark, // Save the rejection reason
+            'reject_remark' => $request->reject_remark,
         ]);
 
         return redirect()->back()->with('success', 'OT Request has been rejected successfully.');
     }
-
 
     /**
      * Display the employee OT report (Actual Data Only).

@@ -64,6 +64,10 @@ Route::get('/users/{user}/ot', [UserController::class, 'getOvertimeData'])
     ->name('users.ot_data')
     ->middleware(['auth', 'verified']);
 
+Route::post('users/import', [UserController::class, 'import'])->name('users.import')->middleware(['auth', 'verified']);
+Route::get('users/import-sample', [UserController::class, 'downloadSample'])->name('users.sample')->middleware(['auth', 'verified']);
+Route::get('users/export', [UserController::class, 'export'])->name('users.export')->middleware(['auth', 'verified']);
+
 // Overtime Reports Routes
 
 Route::get('/reports/employee-ot', [OtRequestController::class, 'employeeOtReport'])->name('reports.employee-ot')->middleware(['auth', 'verified']);

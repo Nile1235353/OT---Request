@@ -242,7 +242,11 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($myRequests ?? [] as $request)
-                        <tr class="hover:bg-gray-50">
+                        {{-- UPDATED: Added onclick and data-json for Modal --}}
+                        <tr class="hover:bg-indigo-50 cursor-pointer transition-colors duration-200" 
+                            onclick="openModal(this)"
+                            data-json="{{ json_encode($request) }}">
+                            
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                                 {{ \Carbon\Carbon::parse($request->ot_date)->format('M d, Y') }}
                             </td>
@@ -283,6 +287,96 @@
                     @endforelse
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+{{-- OT Detail Modal Structure --}}
+<div id="otDetailModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <!-- Background backdrop -->
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeModal()"></div>
+
+        <!-- Modal Panel -->
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+            
+            <!-- Modal Header -->
+            <div class="bg-indigo-600 px-4 py-3 sm:px-6 flex justify-between items-center">
+                <h3 class="text-lg leading-6 font-medium text-white" id="modal-title">
+                    OT Request Details
+                </h3>
+                <button type="button" onclick="closeModal()" class="text-indigo-200 hover:text-white focus:outline-none">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase font-bold">Request ID</p>
+                        <p id="m_request_id" class="text-gray-900 font-medium">-</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase font-bold">Date</p>
+                        <p id="m_ot_date" class="text-gray-900 font-medium">-</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase font-bold">Time</p>
+                        <p class="text-gray-900 font-medium">
+                            <span id="m_start_time"></span> - <span id="m_end_time"></span> 
+                            (<span id="m_total_hours"></span> hrs)
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase font-bold">Status</p>
+                        <span id="m_status" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            -
+                        </span>
+                    </div>
+                     <div>
+                        <p class="text-xs text-gray-500 uppercase font-bold">Customer</p>
+                        <p id="m_customer" class="text-gray-900">-</p>
+                    </div>
+                     <div>
+                        <p class="text-xs text-gray-500 uppercase font-bold">Job Code</p>
+                        <p id="m_job_code" class="text-gray-900">-</p>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <p class="text-xs text-gray-500 uppercase font-bold mb-1">Reason</p>
+                    <p id="m_reason" class="text-gray-700 bg-gray-50 p-3 rounded border border-gray-200">-</p>
+                </div>
+
+                <!-- Team Members Table inside Modal -->
+                <div>
+                    <h4 class="text-sm font-bold text-gray-800 mb-2 border-b pb-1">Team Members & Tasks</h4>
+                    <div class="border rounded-md overflow-hidden">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task</th>
+                                </tr>
+                            </thead>
+                            <tbody id="m_team_tbody" class="bg-white divide-y divide-gray-200">
+                                <!-- JS will populate this -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="closeModal()" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                    Close
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -447,6 +541,72 @@ document.addEventListener("DOMContentLoaded", function () {
         if (selectedOptions[i].selected) {
             createTaskInput(selectedOptions[i].value, selectedOptions[i].text);
         }
+    }
+});
+
+// --- Modal Functions (New Added) ---
+function openModal(element) {
+    // 1. Get Data from clicked row
+    const data = JSON.parse(element.getAttribute('data-json'));
+    
+    // 2. Populate Basic Fields
+    document.getElementById('m_request_id').innerText = data.request_id || '-';
+    document.getElementById('m_ot_date').innerText = data.ot_date || '-';
+    document.getElementById('m_start_time').innerText = data.start_time || '-';
+    document.getElementById('m_end_time').innerText = data.end_time || '-';
+    document.getElementById('m_total_hours').innerText = data.total_hours || '-';
+    document.getElementById('m_customer').innerText = data.customer_name || '-';
+    document.getElementById('m_job_code').innerText = data.job_code || '-';
+    document.getElementById('m_reason').innerText = data.reason || '-';
+    
+    // Status Styling
+    const statusSpan = document.getElementById('m_status');
+    statusSpan.innerText = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+    statusSpan.className = "px-2 inline-flex text-xs leading-5 font-semibold rounded-full ";
+    
+    if(data.status === 'Approved') statusSpan.classList.add('bg-green-100', 'text-green-800');
+    else if(data.status === 'Rejected') statusSpan.classList.add('bg-red-100', 'text-red-800');
+    else statusSpan.classList.add('bg-yellow-100', 'text-yellow-800');
+
+    // 3. Populate Team Members Table
+    const tbody = document.getElementById('m_team_tbody');
+    tbody.innerHTML = ''; // Clear previous data
+
+    if (data.assign_teams && data.assign_teams.length > 0) {
+        data.assign_teams.forEach(item => {
+            const userName = item.user ? item.user.name : 'Unknown User';
+            const dept = item.user ? item.user.department : '-';
+            const task = item.task_description || '-';
+
+            const row = `
+                <tr>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                        <div class="font-medium">${userName}</div>
+                        <div class="text-xs text-gray-500">${dept}</div>
+                    </td>
+                    <td class="px-4 py-2 text-sm text-gray-500 break-words">
+                        ${task}
+                    </td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+    } else {
+        tbody.innerHTML = '<tr><td colspan="2" class="px-4 py-2 text-center text-sm text-gray-500">No team members assigned.</td></tr>';
+    }
+
+    // 4. Show Modal
+    document.getElementById('otDetailModal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('otDetailModal').classList.add('hidden');
+}
+
+// Close on Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+        closeModal();
     }
 });
 </script>
