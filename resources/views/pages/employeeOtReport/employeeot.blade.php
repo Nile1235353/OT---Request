@@ -80,7 +80,7 @@
                             <select name="department" id="department" class="pl-10 pr-8 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 w-full appearance-none cursor-pointer h-[42px]">
                                 <option value="">All Departments</option>
                                 @php
-                                    $depts = ['Warehouse', 'BD', 'SCS', 'Data Center', 'ICD', 'CCA', 'IT', 'IT & Process', 'M&E', 'M&R', 'QEHS', 'HR', 'Corporate','Truck','Yard & Rail', 'Process', 'Finance'];
+                                    $depts = ['Warehouse', 'ICD', 'Yard & Rail', 'Truck', 'IT', 'Process', 'Software', 'Data Center', 'Media', 'Secondary Transport', 'Business Development', 'Sales & CS', 'QEHS', 'Admin & HR', 'Finance & Account', 'M&E', 'Management', 'M&R', 'Customs & Formalities','Corportate'];
                                 @endphp
                                 @foreach($depts as $dept)
                                     <option value="{{ $dept }}" {{ (request('department') == $dept) ? 'selected' : '' }}>{{ $dept }}</option>

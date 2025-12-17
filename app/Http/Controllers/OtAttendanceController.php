@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\OtAttendance;
-use App\Imports\OtAttendanceImport;
+use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\OtAttendanceImport;
 use Carbon\Carbon;
 
 class OtAttendanceController extends Controller
@@ -16,12 +16,12 @@ class OtAttendanceController extends Controller
         $query = OtAttendance::with('user'); // User relationship ပါ ချိတ်ယူမယ်
 
         // Date Filter ပါလာခဲ့ရင်
-        if ($request->has('filter_date') && $request->filter_date != null) {
+        if ($request->has('filter_date') && $request->filter_date) {
             $query->whereDate('date', $request->filter_date);
         }
 
-        // နောက်ဆုံးထည့်ထားတဲ့ Data ကို အပေါ်ဆုံးမှာပြမယ်၊ ၁၀ ခုစီ ခွဲပြမယ်
-        $attendanceData = $query->latest()->paginate(10);
+        // နောက်ဆုံးထည့်ထားတဲ့ Data ကို အပေါ်ဆုံးမှာပြမယ်၊ ၂၀ ခုစီ ခွဲပြမယ်
+        $attendanceData = $query->orderBy('date', 'desc')->paginate(20);
 
         return view('pages.fingerprint.fingerPrintImport', compact('attendanceData'));
     }
@@ -33,18 +33,21 @@ class OtAttendanceController extends Controller
             'file' => 'required|mimes:xlsx,xls,csv|max:10240',
             'office_start_time' => 'required',
             'office_end_time'   => 'required',
+            'location' => 'required|string', // Location ကို validate လုပ်ရန်
         ]);
 
         try {
-            // Import Class ကို ခေါ်တဲ့အချိန်မှာ Time တွေကို Constructor ထဲ ထည့်ပေးလိုက်ပါတယ်
+            // Import Class ကို ခေါ်တဲ့အချိန်မှာ Time တွေနဲ့ Location ကို Constructor ထဲ ထည့်ပေးလိုက်ပါတယ်
             Excel::import(new OtAttendanceImport(
                 $request->office_start_time, 
-                $request->office_end_time
+                $request->office_end_time,
+                $request->location 
             ), $request->file('file'));
 
-            return redirect()->back()->with('success', 'Data imported successfully with OT calculation!');
+            return redirect()->back()->with('success', 'Attendance data imported and calculated successfully.');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
+            // Error အသေးစိတ်ကို ပြန်ပြပေးခြင်း (Development အတွက်)
+            return redirect()->back()->with('error', 'Import Failed: ' . $e->getMessage());
         }
     }
 
@@ -80,7 +83,7 @@ class OtAttendanceController extends Controller
         // ရက်စွဲကို String အဖြစ်ယူပါ (Example: "2025-11-30")
         $dateStr = Carbon::parse($request->date)->format('Y-m-d');
 
-        // [UPDATED] Request မှ ရုံးချိန်များကို ယူပါ
+        // Request မှ ရုံးချိန်များကို ယူပါ
         $startTimeInput = $request->input('office_start_time'); // e.g., "09:00"
         $endTimeInput   = $request->input('office_end_time');   // e.g., "17:00"
 
@@ -98,29 +101,33 @@ class OtAttendanceController extends Controller
             
             // CheckIn သည် OfficeStart ထက် စောနေလျှင် (Less Than)
             if ($checkIn->lt($officeStart)) {
-                // Timestamp နည်းလမ်းဖြင့် မိနစ်ကွာခြားချက် ရှာခြင်း
-                $morningOtMins = ($officeStart->timestamp - $checkIn->timestamp) / 60;
+                $morningOtMins = $checkIn->diffInMinutes($officeStart);
                 $debugMsg .= " Morning: {$morningOtMins} mins.";
             } else {
-                // ရုံးချိန်မီ သို့မဟုတ် နောက်ကျမှ ရောက်လျှင် OT မရှိ
-                $debugMsg .= " No Morning OT (Arrived at/after start time).";
+                $debugMsg .= " No Morning OT.";
             }
-        } elseif ($request->check_in_time && !$allowMorningOt) {
-            $debugMsg .= " Morning OT disabled for this user.";
         }
 
         // (B) Evening OT Calculation (ရုံးဆင်းပြီးနောက် နောက်ကျပြန်ချိန်)
         if ($request->check_out_time) {
             $checkOut = Carbon::parse("$dateStr " . $request->check_out_time);
+            
+            // အကယ်၍ Check In ရှိပြီး Check Out က Check In ထက် စောနေလျှင် (ဥပမာ - ည ၁၂ ကျော်ပြန်လျှင်)
+            // Check Out ကို နောက်တစ်ရက်သို့ တိုးပေးရမည်
+            if ($request->check_in_time) {
+                $checkInForCompare = Carbon::parse("$dateStr " . $request->check_in_time);
+                if ($checkOut->lt($checkInForCompare)) {
+                    $checkOut->addDay();
+                    $debugMsg .= " (Next Day Checkout detected)";
+                }
+            }
 
             // CheckOut သည် OfficeEnd ထက် နောက်ကျနေလျှင် (Greater Than)
             if ($checkOut->gt($officeEnd)) {
-                // Timestamp နည်းလမ်းဖြင့် မိနစ်ကွာခြားချက် ရှာခြင်း
-                $eveningOtMins = ($checkOut->timestamp - $officeEnd->timestamp) / 60;
+                $eveningOtMins = $checkOut->diffInMinutes($officeEnd);
                 $debugMsg .= " Evening: {$eveningOtMins} mins.";
             } else {
-                // ရုံးချိန်မတိုင်မီ သို့မဟုတ် ရုံးဆင်းချိန်အတိ ပြန်လျှင် OT မရှိ
-                $debugMsg .= " No Evening OT (Left at/before end time).";
+                $debugMsg .= " No Evening OT.";
             }
         }
 
@@ -133,7 +140,6 @@ class OtAttendanceController extends Controller
         
         $record->save();
 
-        return redirect()->back()->with('success', "Updated! Morning: {$morningOtHours} hrs, Evening: {$eveningOtHours} hrs. Total: {$record->actual_ot_hours} hrs. (Note: $debugMsg)");
+        return redirect()->back()->with('success', "Updated! Morning: {$morningOtHours} hrs, Evening: {$eveningOtHours} hrs. Total: {$record->actual_ot_hours} hrs.");
     }
-
 }

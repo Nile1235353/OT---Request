@@ -132,14 +132,29 @@
                         </div>
                         <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                             <h3 class="text-lg leading-6 font-bold text-gray-900">Import & Calculate OT</h3>
-                            <div class="mt-4 grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-md border border-gray-200">
+                            
+                            {{-- [NEW] Location Selection --}}
+                            <div class="mt-4 mb-4">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Select Location</label>
+                                <select name="location" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2">
+                                    <option value="" disabled selected>-- Select Location --</option>
+                                    <option value="Yangon">Yangon</option>
+                                    <option value="Mandalay">Mandalay</option>
+                                    <option value="Nay Pyi Taw">Nay Pyi Taw</option>
+                                    <option value="Bago">Bago</option>
+                                    <option value="Taunggyi">Taunggyi</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">This helps match employees with numeric IDs (e.g. 326 -> YTG326).</p>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-md border border-gray-200">
                                 <div>
                                     <label class="block text-xs font-medium text-gray-700 mb-1">Office Start</label>
-                                    <input type="time" name="office_start_time" value="09:00" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                    <input type="time" name="office_start_time" value="08:30" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-700 mb-1">Office End</label>
-                                    <input type="time" name="office_end_time" value="17:00" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                    <input type="time" name="office_end_time" value="17:30" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                 </div>
                             </div>
                             <div class="mt-4">
@@ -193,11 +208,11 @@
                 <div class="grid grid-cols-2 gap-4 mb-4 bg-yellow-50 p-3 rounded border border-yellow-200">
                     <div>
                         <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Office Start</label>
-                        <input type="time" name="office_start_time" id="edit_office_start" value="09:00" class="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-yellow-500 focus:border-yellow-500 text-sm" required>
+                        <input type="time" name="office_start_time" id="edit_office_start" value="08:30" class="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-yellow-500 focus:border-yellow-500 text-sm" required>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Office End</label>
-                        <input type="time" name="office_end_time" id="edit_office_end" value="17:00" class="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-yellow-500 focus:border-yellow-500 text-sm" required>
+                        <input type="time" name="office_end_time" id="edit_office_end" value="17:30" class="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-yellow-500 focus:border-yellow-500 text-sm" required>
                     </div>
                     <p class="col-span-2 text-xs text-yellow-600 italic text-center">OT will be recalculated based on these hours.</p>
                 </div>

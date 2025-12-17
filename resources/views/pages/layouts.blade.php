@@ -92,8 +92,8 @@
                             @endif
 
                             {{-- 2. OT Report --}}
-                            {{-- LOGIC: Admin OR HR OR Management (Role) OR Manager (Position) --}}
-                            @if(in_array(auth()->user()->role, ['Admin', 'HR', 'Management']) || auth()->user()->position == 'Manager')
+                            {{-- LOGIC: Admin OR HR OR Management (Role) OR High-Level Positions --}}
+                            @if(in_array(auth()->user()->role, ['Admin', 'HR', 'Management']) || in_array(auth()->user()->position, ['Manager', 'Assistant Manager', 'General Manager', 'Assistant General Manager', 'CEO', 'COO']))
                                 <a href="/reports/employee-ot" class="nav-link px-4 py-2 rounded-md text-sm font-medium {{ request()->is('reports*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-indigo-100/50' }}">
                                     OT Report
                                 </a>
@@ -108,16 +108,16 @@
                             @endif
 
                             {{-- 4. Request OT --}}
-                            {{-- LOGIC: (Admin OR Manager/Sup/Asst OR can_request_ot) AND (Role is NOT Management) --}}
-                            @if((auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Manager', 'Supervisor', 'Assistant Supervisor']) || auth()->user()->can_request_ot == 1) && auth()->user()->role !== 'Management')
+                            {{-- LOGIC: (Admin OR High-Level Positions/Sup/Asst Sup OR can_request_ot) AND (Role is NOT Management) --}}
+                            @if((auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Manager', 'Assistant Manager', 'General Manager', 'Assistant General Manager', 'CEO', 'COO', 'Supervisor', 'Assistant Supervisor']) || auth()->user()->can_request_ot == 1) && auth()->user()->role !== 'Management')
                                 <a href="/request-ot" class="nav-link px-4 py-2 rounded-md text-sm font-medium {{ request()->is('request-ot*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-indigo-100/50' }}">
                                     Request OT
                                 </a>
                             @endif
 
                             {{-- 5. Approve OT --}}
-                            {{-- LOGIC: (Admin OR Manager) AND (Role is NOT Management) --}}
-                            @if((auth()->user()->role == 'Admin' || auth()->user()->position == 'Manager') && auth()->user()->role !== 'Management')
+                            {{-- LOGIC: (Admin OR Manager/Asst Manager/GM/AGM/CEO/COO) AND (Role is NOT Management) --}}
+                            @if((auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Manager', 'Assistant Manager', 'General Manager', 'Assistant General Manager', 'CEO', 'COO'])) && auth()->user()->role !== 'Management')
                                 <a href="/approve-ot" class="nav-link px-4 py-2 rounded-md text-sm font-medium {{ request()->is('approve-ot*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-indigo-100/50' }}">
                                     Approve OT
                                 </a>
@@ -173,7 +173,7 @@
                         </a>
                     @endif
 
-                    @if(in_array(auth()->user()->role, ['Admin', 'HR', 'Management']) || auth()->user()->position == 'Manager')
+                    @if(in_array(auth()->user()->role, ['Admin', 'HR', 'Management']) || in_array(auth()->user()->position, ['Manager', 'Assistant Manager', 'General Manager', 'Assistant General Manager', 'CEO', 'COO']))
                         <a href="/reports/employee-ot" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('reports*') ? 'active' : '' }}">
                             OT Report
                         </a>
@@ -185,13 +185,13 @@
                         </a>
                     @endif
 
-                    @if((auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Manager', 'Supervisor', 'Assistant Supervisor']) || auth()->user()->can_request_ot == 1) && auth()->user()->role !== 'Management')
+                    @if((auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Manager', 'Assistant Manager', 'General Manager', 'Assistant General Manager', 'CEO', 'COO', 'Supervisor', 'Assistant Supervisor']) || auth()->user()->can_request_ot == 1) && auth()->user()->role !== 'Management')
                         <a href="/request-ot" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('request-ot*') ? 'active' : '' }}">
                             Request OT
                         </a>
                     @endif
                     
-                    @if((auth()->user()->role == 'Admin' || auth()->user()->position == 'Manager') && auth()->user()->role !== 'Management')
+                    @if((auth()->user()->role == 'Admin' || in_array(auth()->user()->position, ['Manager', 'Assistant Manager', 'General Manager', 'Assistant General Manager', 'CEO', 'COO'])) && auth()->user()->role !== 'Management')
                         <a href="/approve-ot" class="mobile-nav-button block py-2 px-4 text-sm hover:bg-gray-200 {{ request()->is('approve-ot*') ? 'active' : '' }}">
                             Approve OT
                         </a>

@@ -40,15 +40,31 @@ class RegisteredUserController extends Controller
         $users = $query->paginate(10)->withQueryString(); 
 
         // Dropdown Lists
-        $departments = ['Warehouse', 'BD', 'SCS', 'Data Center', 'ICD', 'CCA', 'IT', 'IT & Process', 'M&E', 'M&R', 'QEHS', 'HR', 'Corporate','Truck','Yard & Rail', 'Process', 'Finance'];
-        $positions = ['Manager','Assistant Supervisor', 'Supervisor', 'Staff'];
-        $locations = ['Yangon', 'Mandalay', 'Nay Pyi Taw', 'Taunggyi', 'Mawlamyine'];
+        $departments = ['Warehouse', 'ICD', 'Yard & Rail', 'Truck', 'IT', 'Process', 'Software', 'Data Center', 'Media', 'Secondary Transport', 'Business Development', 'Sales & CS', 'QEHS', 'Admin & HR', 'Finance & Account', 'M&E', 'Management', 'M&R', 'Customs & Formalities','Corportate'];
+        $positions = [
+            'Managing Director',
+            'Director',
+            'COO',
+            'CEO',
+            'General Manager',
+            'Manager',
+            'Assistant Manager',
+            'Sr Supervisor',
+            'Supervisor',
+            'Assistant Supervisor',
+            'Staff',
+            'General Worker',
+            'Operator (forklift)',
+            'Sr Operator (Forklift)',
+            
+        ];
+        $locations = ['Yangon', 'Mandalay'];
 
         // Get Potential Approvers (Active Users with higher roles)
         $potential_approvers = User::where('status', 'active')
             ->where(function ($q) {
                 $q->where('role', 'Admin')
-                  ->orWhereIn('position', ['Manager']);
+                  ->orWhereIn('position', ['Manager', 'Assistant Manager', 'General Manager', 'Assistant General Manager', 'COO', 'CEO', 'Managing Director']);
             })
             ->orderBy('name')
             ->get(['id', 'name', 'position', 'department']);
@@ -57,76 +73,51 @@ class RegisteredUserController extends Controller
     }
 
     /**
-     * Handle an incoming registration request.
+     * Store a newly created user in storage.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request)
     {
-        // Role Check
-        if ( !in_array(Auth::user()->role, ['Admin', 'HR']) ) {
-            return redirect()->back()->with('error', 'You do not have permission.');
-        }
-
+        // ၁။ Validation စစ်ဆေးခြင်း
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'employee_id' => ['nullable', 'string', 'max:255', 'unique:'.User::class],
-            'finger_print_id' => ['nullable', 'string', 'max:50', 'unique:'.User::class],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'role' => ['nullable', 'string', 'max:50'],
-            'department' => ['nullable', 'string', 'max:100'],
-            'position' => ['nullable', 'string', 'max:100'],
-            'location' => ['nullable', 'string', 'max:100'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'employee_id' => ['nullable', 'string', 'unique:users'],
+            // Finger Print ID ကို User ကိုယ်တိုင်ရိုက်ထည့်မည်ဖြစ်သော်လည်း Unique ဖြစ်ရမည်
+            'finger_print_id' => ['required', 'string', 'unique:users'],
+            'location' => ['required', 'string'],
+            'department' => ['nullable', 'string'],
+            'position' => ['nullable', 'string'],
+            'role' => ['required', 'string'],
+            'phone' => ['nullable', 'string'],
             'status' => ['required', 'in:active,inactive'],
-            'can_request_ot' => ['nullable'],
-            'morning_ot' => ['nullable'], 
             'approvers' => ['nullable', 'array'],
             'approvers.*' => ['exists:users,id'],
         ]);
 
+        // ၂။ User Create လုပ်ခြင်း
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'employee_id' => $request->employee_id,
-            'finger_print_id' => $request->finger_print_id,
+            'finger_print_id' => $request->finger_print_id, // Form မှလာသော ID အတိုင်းသိမ်းမည်
             'phone' => $request->phone,
             'location' => $request->location,
-            'role' => $request->role ?? 'user',
             'department' => $request->department,
             'position' => $request->position,
-            'status' => $request->status ?? 'active',
+            'role' => $request->role,
+            'status' => $request->status,
             'can_request_ot' => $request->has('can_request_ot') ? 1 : 0,
-            'morning_ot' => $request->has('morning_ot') ? 1 : 0, 
+            'morning_ot' => $request->has('morning_ot') ? 1 : 0,
         ]);
 
-        // --- START: Approver Assignment Logic ---
-        
-        // 1. Get manually selected approvers from form (if any)
-        $approverIds = $request->input('approvers', []);
-
-        // 2. [AUTO ASSIGN] Find Department Managers
-        if ($user->department) {
-            $deptManagers = User::where('department', $user->department)
-                                ->where('position', 'Manager')
-                                ->where('status', 'active')
-                                ->where('id', '!=', $user->id) // ကိုယ့်ဟာကိုယ် Approver မပြန်ဖြစ်စေရန်
-                                ->pluck('id')
-                                ->toArray();
-            
-            // Merge existing selection with auto-detected managers (avoid duplicates)
-            $approverIds = array_unique(array_merge($approverIds, $deptManagers));
+        // ၃။ Approvers များ ချိတ်ဆက်ခြင်း
+        if ($request->has('approvers')) {
+            $user->approvers()->sync($request->approvers);
         }
 
-        // 3. Sync Approvers
-        if (!empty($approverIds)) {
-            $user->approvers()->sync($approverIds);
-        }
-        // --- END: Approver Assignment Logic ---
-
-        event(new Registered($user));
-
-        return redirect()->route('users.create')->with('success', 'User created successfully!');
+        return redirect()->back()->with('success', 'User created successfully with ID: ' . $user->finger_print_id);
     }
 
     /**

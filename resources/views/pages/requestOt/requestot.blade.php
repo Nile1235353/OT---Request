@@ -67,11 +67,11 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-8">
                 <div>
                     <label for="start_time" class="block text-sm font-medium text-gray-700">Start Time</label>
-                    <input type="time" id="start_time" name="start_time" value="{{ old('start_time', '18:00') }}" class="mt-1 block w-full rounded-lg border-gray-400 focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 py-2.5 px-4 placeholder:text-gray-400" required>
+                    <input type="time" id="start_time" name="start_time" value="{{ old('start_time', '17:30') }}" class="mt-1 block w-full rounded-lg border-gray-400 focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 py-2.5 px-4 placeholder:text-gray-400" required>
                 </div>
                 <div>
                     <label for="end_time" class="block text-sm font-medium text-gray-700">End Time</label>
-                    <input type="time" id="end_time" name="end_time" value="{{ old('end_time', '22:00') }}" class="mt-1 block w-full rounded-lg border-gray-400 focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 py-2.5 px-4 placeholder:text-gray-400" required>
+                    <input type="time" id="end_time" name="end_time" value="{{ old('end_time', '20:30') }}" class="mt-1 block w-full rounded-lg border-gray-400 focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 py-2.5 px-4 placeholder:text-gray-400" required>
                 </div>
                 <div>
                     <label for="total_hours" class="block text-sm font-medium text-gray-700">Total Hours</label>

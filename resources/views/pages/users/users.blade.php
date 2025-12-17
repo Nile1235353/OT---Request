@@ -37,6 +37,17 @@
                         <input type="text" id="name" name="name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border" value="{{ old('name') }}" required>
                     </div>
 
+                    {{-- Location Selection --}}
+                    <div>
+                        <label for="location" class="block text-xs font-semibold text-gray-800">Location <span class="text-red-500">*</span></label>
+                        <select id="location" name="location" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border" required>
+                            <option value="" disabled selected>-- Select Location --</option>
+                            @foreach($locations as $location)
+                                <option value="{{ $location }}" {{ old('location') == $location ? 'selected' : '' }}>{{ $location }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     {{-- IDs --}}
                     <div class="grid grid-cols-2 gap-2">
                         <div>
@@ -44,8 +55,10 @@
                             <input type="text" id="employee_id" name="employee_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border" value="{{ old('employee_id') }}">
                         </div>
                         <div>
-                            <label for="finger_print_id" class="block text-xs font-semibold text-gray-800">Fingerprint ID</label>
-                            <input type="text" id="finger_print_id" name="finger_print_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border" value="{{ old('finger_print_id') }}">
+                            <label for="finger_print_id" class="block text-xs font-semibold text-gray-800">Fingerprint ID <span class="text-red-500">*</span></label>
+                            <input type="text" id="finger_print_id" name="finger_print_id" 
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border font-bold text-indigo-700" 
+                                value="{{ old('finger_print_id') }}" placeholder="e.g. YTG001" required>
                         </div>
                     </div>
 
@@ -59,16 +72,7 @@
                         <input type="text" id="phone" name="phone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border" value="{{ old('phone') }}">
                     </div>
 
-                    {{-- Location & Dept --}}
-                    <div>
-                        <label for="location" class="block text-xs font-semibold text-gray-800">Location</label>
-                        <select id="location" name="location" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border">
-                            <option value="" disabled selected>-- Select Location --</option>
-                            @foreach($locations as $location)
-                                <option value="{{ $location }}" {{ old('location') == $location ? 'selected' : '' }}>{{ $location }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    {{-- Dept & Position --}}
                     <div>
                         <label for="department" class="block text-xs font-semibold text-gray-800">Department</label>
                         <select id="department" name="department" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border">
@@ -79,7 +83,6 @@
                         </select>
                     </div>
 
-                    {{-- Position --}}
                     <div>
                         <label for="position" class="block text-xs font-semibold text-gray-800">Position</label>
                         <select id="position" name="position" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border">
@@ -90,7 +93,7 @@
                         </select>
                     </div>
 
-                    {{-- [NEW] Approvers (Multiple Select) --}}
+                    {{-- Approvers --}}
                     <div>
                         <label for="approvers" class="block text-xs font-semibold text-gray-800">Approvers</label>
                         <p class="text-[10px] text-gray-400 mb-1">Hold Ctrl (Win) or Cmd (Mac) to select multiple.</p>
@@ -172,7 +175,7 @@
                     Import Excel
                 </h3>
                 
-                <form action="{{ route('users.import') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                <form action="{{ Route::has('users.import') ? route('users.import') : '#' }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                     @csrf
                     
                     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
@@ -209,7 +212,6 @@
                     </div>
                     
                     <div class="text-center mt-2">
-                        {{-- Change route to '#' if route is not defined yet --}}
                         <a href="{{ Route::has('users.sample') ? route('users.sample') : '#' }}" class="text-xs text-indigo-600 hover:text-indigo-800 underline flex items-center justify-center gap-1">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4 4m4-4v12"></path></svg>
                             Download Sample Format
@@ -221,7 +223,7 @@
         </div>
 
         {{-- ======================== --}}
-        {{-- 2. RIGHT COLUMN: USER LIST TABLE --}}
+        {{-- 2. RIGHT COLUMN: USER LIST --}}
         {{-- ======================== --}}
         <div class="md:col-span-2">
             <div class="page-card">
@@ -230,7 +232,7 @@
                     <h3 class="text-xl font-bold text-gray-800">User List</h3>
                     
                     <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
-                        {{-- Export Button (NEW) --}}
+                        {{-- Export Button --}}
                         <a href="{{ Route::has('users.export') ? route('users.export') : '#' }}" class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 bg-green-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 active:bg-green-900 focus:outline-none focus:border-green-900 focus:ring ring-green-300 disabled:opacity-25 transition ease-in-out duration-150 shadow-sm">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4 4m4-4v12"></path></svg>
                             Export Excel
@@ -268,7 +270,6 @@
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200" id="userTableBody">
                             @forelse ($users as $user)
-                            {{-- [NEW] Pass 'data-approvers' (array of IDs) to row --}}
                             <tr class="user-row hover:bg-gray-50/50 cursor-pointer transition-colors" 
                                 data-user-id="{{ $user->id }}" 
                                 data-user-name="{{ $user->name }}"
@@ -286,7 +287,6 @@
                                     </span>
                                 </td>
 
-                                {{-- STATUS BADGE --}}
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $user->status == 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
                                         {{ ucfirst($user->status ?? 'active') }}
@@ -309,7 +309,7 @@
                                         data-status="{{ $user->status ?? 'active' }}"
                                         data-can-request-ot="{{ $user->can_request_ot }}"
                                         data-morning-ot="{{ $user->morning_ot }}"
-                                        data-approvers="{{ $user->approvers->pluck('id') }}"> {{-- [NEW] Pass Approvers --}}
+                                        data-approvers="{{ $user->approvers->pluck('id') }}">
                                         Edit
                                     </button>
                                 </td>
@@ -325,7 +325,6 @@
                     </table>
                 </div>
                 
-                {{-- Pagination Links --}}
                 <div class="mt-4 px-4 py-3 border-t border-gray-200">
                     {{ $users->links() }}
                 </div>
@@ -470,7 +469,7 @@
                                 </div>
                             </div>
 
-                            {{-- [NEW] EDIT APPROVERS --}}
+                            {{-- EDIT APPROVERS --}}
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Approvers</label>
                                 <p class="text-[10px] text-gray-400 mb-1">Hold Ctrl/Cmd to select multiple.</p>
@@ -568,7 +567,42 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('User Management Script Loaded');
 
-            // --- 1. OT History Modal Logic ---
+            // ============================================
+            // 0. LOCATION to FINGERPRINT ID PREFIX LOGIC
+            // ============================================
+            const locationPrefixes = {
+                'Yangon': 'YTG',
+                'Mandalay': 'MDY',
+                'Nay Pyi Taw': 'NPT',
+                'Bago': 'BGO',
+                'Taunggyi': 'TGI'
+            };
+
+            const locationSelect = document.getElementById('location');
+            const fingerPrintInput = document.getElementById('finger_print_id');
+
+            if (locationSelect && fingerPrintInput) {
+                locationSelect.addEventListener('change', function() {
+                    const selectedLocation = this.value;
+                    const prefix = locationPrefixes[selectedLocation];
+
+                    if (prefix) {
+                        let currentValue = fingerPrintInput.value;
+                        for (const [loc, pre] of Object.entries(locationPrefixes)) {
+                            if (currentValue.startsWith(pre)) {
+                                currentValue = currentValue.substring(pre.length);
+                                break;
+                            }
+                        }
+                        fingerPrintInput.value = prefix + currentValue;
+                        fingerPrintInput.focus();
+                    }
+                });
+            }
+
+            // ============================================
+            // 1. OT History Modal Logic
+            // ============================================
             const otModal = document.getElementById('otModal');
             const otBackdrop = document.getElementById('otModalBackdrop');
             const otCloseBtn = document.getElementById('otModalClose');
@@ -634,13 +668,34 @@
             }
             monthFilter.addEventListener('change', fetchOTData);
 
-            // --- 2. Edit User Modal Logic ---
+            // ============================================
+            // 2. Edit User Modal Logic (With Dropdown Fix)
+            // ============================================
             const editModal = document.getElementById('editUserModal');
             const editBackdrop = document.getElementById('editUserBackdrop');
             const closeEditBtn = document.getElementById('closeEditModal');
             const closeEditBtnTop = document.getElementById('closeEditModalTop');
             const editForm = document.getElementById('editUserForm');
             const editButtons = document.querySelectorAll('.edit-user-btn');
+
+            // Helper function to safely set select value even if it doesn't exist in options
+            function setSelectValue(selectId, value) {
+                const select = document.getElementById(selectId);
+                if (!select) return;
+                
+                // Clear any existing value first
+                select.value = "";
+                
+                if (value) {
+                    select.value = value;
+                    // If setting value failed (because option doesn't exist), add it temporarily
+                    if (select.value === "" && value !== "") {
+                        const newOption = new Option(value, value);
+                        select.add(newOption, undefined);
+                        select.value = value;
+                    }
+                }
+            }
 
             editButtons.forEach(btn => {
                 btn.addEventListener('click', function(e) {
@@ -654,10 +709,11 @@
                     document.getElementById('edit_employee_id').value = this.dataset.employeeId || '';
                     document.getElementById('edit_finger_print_id').value = this.dataset.fingerPrintId || '';
                     
-                    const deptSel = document.getElementById('edit_department'); if(deptSel) deptSel.value = this.dataset.department;
-                    const posSel = document.getElementById('edit_position'); if(posSel) posSel.value = this.dataset.position;
-                    const locSel = document.getElementById('edit_location'); if(locSel) locSel.value = this.dataset.location;
-                    const roleSel = document.getElementById('edit_role'); if(roleSel) roleSel.value = this.dataset.role;
+                    // [FIX] Use helper function to ensure values are set correctly
+                    setSelectValue('edit_department', this.dataset.department);
+                    setSelectValue('edit_position', this.dataset.position);
+                    setSelectValue('edit_location', this.dataset.location);
+                    setSelectValue('edit_role', this.dataset.role);
                     
                     // Populate Status
                     const statusSel = document.getElementById('edit_status'); if(statusSel) statusSel.value = this.dataset.status;
@@ -665,11 +721,11 @@
                     document.getElementById('edit_can_request_ot').checked = (this.dataset.canRequestOt == "1");
                     document.getElementById('edit_morning_ot').checked = (this.dataset.morningOt == "1");
 
-                    // [NEW] Populate Approvers
+                    // Populate Approvers
                     const approverSelect = document.getElementById('edit_approvers');
                     if (approverSelect && this.dataset.approvers) {
                         try {
-                            const approverIds = JSON.parse(this.dataset.approvers); // Expecting array e.g. [1, 5]
+                            const approverIds = JSON.parse(this.dataset.approvers); 
                             Array.from(approverSelect.options).forEach(option => {
                                 option.selected = approverIds.includes(parseInt(option.value));
                             });
@@ -693,7 +749,9 @@
             if(closeEditBtnTop) closeEditBtnTop.addEventListener('click', closeEdit);
             if(editBackdrop) editBackdrop.addEventListener('click', closeEdit);
 
-            // --- 3. Password Update Modal ---
+            // ============================================
+            // 3. Password Update Modal Logic
+            // ============================================
             const pwModal = document.getElementById('passwordUpdateModal');
             const pwBackdrop = document.getElementById('passwordBackdrop');
             const openPwBtn = document.getElementById('openPasswordModalBtn');
@@ -713,7 +771,9 @@
             if(closePwBtn) closePwBtn.addEventListener('click', closePw);
             if(pwBackdrop) pwBackdrop.addEventListener('click', closePw);
 
-            // --- 4. Main Row Click ---
+            // ============================================
+            // 4. Main Row Click (for OT Modal)
+            // ============================================
             userTableBody.addEventListener('click', function(e) {
                 if(e.target.closest('.edit-user-btn')) return;
                 const row = e.target.closest('.user-row');

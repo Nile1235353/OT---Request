@@ -17,6 +17,10 @@ class UserController extends Controller
 {
     public function import(Request $request) 
     {
+
+         // အချိန် limit မထားတော့ဘဲ ပြီးတဲ့အထိ run ပါမယ်
+        set_time_limit(0); 
+        
         // 1. Validation
         $request->validate([
             'file' => 'required|mimes:xlsx,csv,xls|max:2048',

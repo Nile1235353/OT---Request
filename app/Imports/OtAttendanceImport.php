@@ -3,7 +3,7 @@
 namespace App\Imports;
 
 use App\Models\OtAttendance;
-use App\Models\User; // [NEW] User Model ထည့်ရန်
+use App\Models\User;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -13,11 +13,14 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
 {
     protected $officeStartTime;
     protected $officeEndTime;
+    protected $location; // Location property အသစ်ထည့်သည်
 
-    public function __construct($startTime, $endTime)
+    // Controller မှ Location ပါ ပို့ပေးရမည်
+    public function __construct($startTime, $endTime, $location)
     {
         $this->officeStartTime = Carbon::parse($startTime)->format('H:i:s');
         $this->officeEndTime   = Carbon::parse($endTime)->format('H:i:s');
+        $this->location        = $location;
     }
 
     public function model(array $row)
@@ -27,23 +30,53 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
             return null;
         }
 
-        // [NEW] User ကို Employee ID ဖြင့်ရှာပြီး Morning OT ခွင့်ပြုချက် ရှိ/မရှိ စစ်ဆေးခြင်း
-        $user = User::where('finger_print_id', $row['emp_id'])->first();
+        // --- User Matching Logic Start ---
+        $importedId = $row['emp_id'];
+
+        // ၁။ အရင်ဆုံး အတိအကျတူမတူ ရှာပါ (Location ပါ တိုက်စစ်သည်)
+        // ဥပမာ - Excel မှာ YTG326 လို့ပါပြီး Location မှာ Yangon ရွေးထားရင် Match ဖြစ်မယ်
+        $user = User::where('finger_print_id', $importedId)
+                    ->where('location', $this->location) 
+                    ->first();
+
+        // ၂။ အတိအကျမတွေ့ပါက ဂဏန်းတူညီမှု ရှိမရှိ စစ်ဆေးပါ
+        if (!$user) {
+            $importNum = preg_replace('/[^0-9]/', '', $importedId);
+
+            if ($importNum) {
+                // [ပြင်ဆင်ချက်] ရွေးချယ်ထားသော Location ရှိ User များထဲမှသာ ရှာဖွေခြင်း
+                // ဥပမာ - Location 'Yangon' ရွေးထားရင် 'MDY326' ကို ထည့်တွက်မှာ မဟုတ်တော့ပါ
+                $candidates = User::where('location', $this->location)
+                                  ->where('finger_print_id', 'LIKE', '%' . $importNum)
+                                  ->get();
+
+                foreach ($candidates as $candidate) {
+                    $dbNum = preg_replace('/[^0-9]/', '', $candidate->finger_print_id);
+
+                    if (intval($dbNum) == intval($importNum)) {
+                        $user = $candidate;
+                        break; 
+                    }
+                }
+            }
+        }
+        // --- User Matching Logic End ---
         
-        // User မရှိရင် (သို့) morning_ot က 0 (false) ဖြစ်နေရင် Morning OT မတွက်ဘူး
         $allowMorningOt = $user ? $user->morning_ot : false;
 
         $date = $this->transformDate($row['date']);
         $checkIn  = $this->transformTime($row['check_in']);
         $checkOut = $this->transformTime($row['check_out']);
 
-        // [UPDATED] calculateOtHours သို့ $allowMorningOt ပါ ထည့်ပေးလိုက်သည်
         $otHours = $this->calculateOtHours($checkIn, $checkOut, $allowMorningOt);
+
+        // Database တွင်ရှိသော ID (YTG326) ကို ဦးစားပေးသိမ်းမည်
+        $employeeIdToSave = $user ? $user->finger_print_id : $row['emp_id'];
 
         return OtAttendance::updateOrCreate(
             [
                 'date'        => $date,
-                'employee_id' => $row['emp_id'],
+                'employee_id' => $employeeIdToSave,
             ],
             [
                 'check_in_time'   => $checkIn,
@@ -91,7 +124,6 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
         $checkInMin     = $this->timeToMinutes($in);
         $checkOutMin    = $this->timeToMinutes($out);
 
-        // ည ၁၂ ကျော်သွားတဲ့ အခြေအနေ (Check Out < Check In)
         if ($checkOutMin < $checkInMin) {
             $checkOutMin += 1440; 
         }
@@ -99,20 +131,16 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
         $morningOt = 0;
         $eveningOt = 0;
 
-        // ၁။ မနက်ပိုင်း OT (Permission ရှိမှ တွက်မည်)
         if ($allowMorningOt) {
-            // CheckIn က OfficeStart ထက် စောရောက်နေရင်
             if ($checkInMin < $officeStartMin) {
                 $morningOt = ($officeStartMin - $checkInMin) / 60;
             }
         }
 
-        // ၂။ ညနေပိုင်း OT (ရုံးဆင်းချိန် ကျော်လွန်သော အချိန်များ)
         if ($checkOutMin > $officeEndMin) {
             $eveningOt = ($checkOutMin - $officeEndMin) / 60;
         }
 
-        // စုစုပေါင်း OT
         $totalOt = $morningOt + $eveningOt;
 
         return max(0, round($totalOt, 2));
