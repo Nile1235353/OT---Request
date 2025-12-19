@@ -62,72 +62,57 @@ class OtAttendanceController extends Controller
             'date' => 'required|date',
             'check_in_time' => 'nullable', 
             'check_out_time' => 'nullable',
-            // [NEW] Modal မှ ပို့လိုက်သော ရုံးချိန်များကို စစ်ဆေးခြင်း
             'office_start_time' => 'required', 
             'office_end_time' => 'required',   
         ]);
 
-        // User relationship ပါတပါတည်း ယူပါ (Permission စစ်ရန်)
         $record = OtAttendance::with('user')->findOrFail($id);
 
         // 2. User Permission (Morning OT ရမရ စစ်ဆေးခြင်း)
         $allowMorningOt = $record->user ? $record->user->morning_ot : false;
 
-        // 3. Data Update (အချိန်များကို Database ထဲ အရင်သိမ်းပါမည်)
+        // 3. Data Update
         $record->date = $request->date;
         $record->check_in_time = $request->check_in_time;
         $record->check_out_time = $request->check_out_time;
 
-        // 4. OT Hours Recalculation (Modal မှ ရုံးချိန်များကို အသုံးပြု၍ ပြန်တွက်ခြင်း)
-        
-        // ရက်စွဲကို String အဖြစ်ယူပါ (Example: "2025-11-30")
+        // 4. OT Hours Recalculation
         $dateStr = Carbon::parse($request->date)->format('Y-m-d');
+        $startTimeInput = $request->input('office_start_time'); 
+        $endTimeInput   = $request->input('office_end_time');   
 
-        // Request မှ ရုံးချိန်များကို ယူပါ
-        $startTimeInput = $request->input('office_start_time'); // e.g., "09:00"
-        $endTimeInput   = $request->input('office_end_time');   // e.g., "17:00"
-
-        // Carbon Date Object များ တည်ဆောက်ခြင်း
         $officeStart = Carbon::parse("$dateStr $startTimeInput");
         $officeEnd   = Carbon::parse("$dateStr $endTimeInput");
 
         $morningOtMins = 0;
         $eveningOtMins = 0;
-        $debugMsg = "";
 
-        // (A) Morning OT Calculation (ရုံးမတက်ခင် စောလာချိန်)
+        // (A) Morning OT Calculation
         if ($request->check_in_time && $allowMorningOt) {
             $checkIn = Carbon::parse("$dateStr " . $request->check_in_time);
             
-            // CheckIn သည် OfficeStart ထက် စောနေလျှင် (Less Than)
+            // CheckIn သည် OfficeStart ထက် စောနေမှသာ OT တွက်မည်
             if ($checkIn->lt($officeStart)) {
-                $morningOtMins = $checkIn->diffInMinutes($officeStart);
-                $debugMsg .= " Morning: {$morningOtMins} mins.";
-            } else {
-                $debugMsg .= " No Morning OT.";
+                // diffInMinutes ကို absolute value အဖြစ်ယူရန် true parameter ထည့်နိုင်သည် သို့မဟုတ် abs() သုံးနိုင်သည်
+                $morningOtMins = abs($checkIn->diffInMinutes($officeStart));
             }
         }
 
-        // (B) Evening OT Calculation (ရုံးဆင်းပြီးနောက် နောက်ကျပြန်ချိန်)
+        // (B) Evening OT Calculation
         if ($request->check_out_time) {
             $checkOut = Carbon::parse("$dateStr " . $request->check_out_time);
             
-            // အကယ်၍ Check In ရှိပြီး Check Out က Check In ထက် စောနေလျှင် (ဥပမာ - ည ၁၂ ကျော်ပြန်လျှင်)
-            // Check Out ကို နောက်တစ်ရက်သို့ တိုးပေးရမည်
+            // ညသန်းခေါင်ကျော် (Next Day) Checkout ဖြစ်မဖြစ် စစ်ဆေးခြင်း
             if ($request->check_in_time) {
                 $checkInForCompare = Carbon::parse("$dateStr " . $request->check_in_time);
                 if ($checkOut->lt($checkInForCompare)) {
                     $checkOut->addDay();
-                    $debugMsg .= " (Next Day Checkout detected)";
                 }
             }
 
-            // CheckOut သည် OfficeEnd ထက် နောက်ကျနေလျှင် (Greater Than)
+            // CheckOut သည် OfficeEnd ထက် နောက်ကျနေမှသာ OT တွက်မည်
             if ($checkOut->gt($officeEnd)) {
-                $eveningOtMins = $checkOut->diffInMinutes($officeEnd);
-                $debugMsg .= " Evening: {$eveningOtMins} mins.";
-            } else {
-                $debugMsg .= " No Evening OT.";
+                $eveningOtMins = abs($checkOut->diffInMinutes($officeEnd));
             }
         }
 
@@ -135,7 +120,7 @@ class OtAttendanceController extends Controller
         $morningOtHours = round($morningOtMins / 60, 2);
         $eveningOtHours = round($eveningOtMins / 60, 2);
         
-        // Total OT ပေါင်းထည့်ခြင်း
+        // Total OT ပေါင်းထည့်ခြင်း (အမြဲတမ်း Positive ဖြစ်နေစေရန်)
         $record->actual_ot_hours = $morningOtHours + $eveningOtHours;
         
         $record->save();

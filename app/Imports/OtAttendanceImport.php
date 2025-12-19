@@ -120,30 +120,20 @@ class OtAttendanceImport implements ToModel, WithHeadingRow
 
         $officeStartMin = $this->timeToMinutes($this->officeStartTime);
         $officeEndMin   = $this->timeToMinutes($this->officeEndTime);
-        
         $checkInMin     = $this->timeToMinutes($in);
         $checkOutMin    = $this->timeToMinutes($out);
 
-        if ($checkOutMin < $checkInMin) {
-            $checkOutMin += 1440; 
+        if ($checkOutMin < $checkInMin) $checkOutMin += 1440; 
+
+        $totalMinutes = 0;
+        if ($allowMorningOt && $checkInMin < $officeStartMin) {
+            $totalMinutes += ($officeStartMin - $checkInMin);
         }
-
-        $morningOt = 0;
-        $eveningOt = 0;
-
-        if ($allowMorningOt) {
-            if ($checkInMin < $officeStartMin) {
-                $morningOt = ($officeStartMin - $checkInMin) / 60;
-            }
-        }
-
         if ($checkOutMin > $officeEndMin) {
-            $eveningOt = ($checkOutMin - $officeEndMin) / 60;
+            $totalMinutes += ($checkOutMin - $officeEndMin);
         }
 
-        $totalOt = $morningOt + $eveningOt;
-
-        return max(0, round($totalOt, 2));
+        return $totalMinutes / 60; // Decimal အဖြစ်သိမ်းမည် (1.5 = 1hr 30min)
     }
 
     private function timeToMinutes($timeStr)

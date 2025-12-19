@@ -35,6 +35,13 @@
         <h3 class="text-2xl font-bold mb-6 border-b pb-3 text-indigo-700">Pending OT Approvals</h3>
         <div class="space-y-4">
             @forelse($pendingRequests as $request)
+                @php
+                    // HH:MM Format ပြောင်းလဲခြင်း Logic
+                    $decimalHours = $request->total_hours;
+                    $h = floor($decimalHours);
+                    $m = round(($decimalHours - $h) * 60);
+                    $formattedTime = sprintf('%02d:%02d', $h, $m);
+                @endphp
                 <div class="border border-gray-200 p-5 rounded-lg bg-white grid grid-cols-1 md:grid-cols-4 gap-6 items-start shadow-sm hover:shadow-md transition-shadow">
                     <div class="md:col-span-3 space-y-2">
                         <div class="flex items-center gap-4 mb-2">
@@ -56,8 +63,8 @@
                                 </span>
                             </div>
                             <div>
-                                <span class="block text-xs font-bold text-gray-500 uppercase">Total Hours</span>
-                                <span class="font-bold text-indigo-600">{{ $request->total_hours }} Hrs</span>
+                                <span class="block text-xs font-bold text-gray-500 uppercase">Total Hours (HH:MM)</span>
+                                <span class="font-bold text-indigo-600">{{ $formattedTime }}</span>
                             </div>
                         </div>
 
@@ -108,7 +115,7 @@
                     <tr>
                         <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested By</th>
-                        <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                        <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours (HH:MM)</th>
                         <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reject Remark</th>
                         <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
@@ -116,6 +123,12 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($historyRequests as $history)
+                        @php
+                            $h_dec = $history->total_hours;
+                            $h_h = floor($h_dec);
+                            $h_m = round(($h_dec - $h_h) * 60);
+                            $historyFormatted = sprintf('%02d:%02d', $h_h, $h_m);
+                        @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                             {{ \Carbon\Carbon::parse($history->ot_date)->format('m/d/Y') }}
@@ -124,7 +137,7 @@
                             {{ $history->supervisor->name ?? 'N/A' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">
-                            {{ $history->total_hours }}
+                            {{ $historyFormatted }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @if($history->status == 'approved')
@@ -154,10 +167,14 @@
     </div>
 </div>
 
-{{-- ================================================================= --}}
-{{-- 1. EDIT MODALS (Generated Loop) --}}
-{{-- ================================================================= --}}
+{{-- EDIT MODALS --}}
 @foreach($pendingRequests as $request)
+    @php
+        $m_dec = $request->total_hours;
+        $m_h = floor($m_dec);
+        $m_m = round(($m_dec - $m_h) * 60);
+        $modalFormattedTime = sprintf('%02d:%02d', $m_h, $m_m);
+    @endphp
     <div id="editModal-{{ $request->id }}" class="modal-overlay edit-modal-overlay" onclick="closeModal('editModal-{{ $request->id }}')">
         <div class="modal-content edit-modal-content" onclick="event.stopPropagation();">
             <div class="flex justify-between items-center mb-4 border-b pb-2">
@@ -169,7 +186,7 @@
                 <p><span class="font-bold text-gray-700">ID:</span> {{ $request->request_id }}</p>
                 <p><span class="font-bold text-gray-700">Date:</span> {{ \Carbon\Carbon::parse($request->ot_date)->format('m/d/Y') }}</p>
                 <p><span class="font-bold text-gray-700">Time:</span> {{ \Carbon\Carbon::parse($request->start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($request->end_time)->format('h:i A') }}</p>
-                <p><span class="font-bold text-gray-700">Total:</span> {{ $request->total_hours }} Hrs</p>
+                <p><span class="font-bold text-gray-700">Total:</span> {{ $modalFormattedTime }} (HH:MM)</p>
             </div>
 
             <form action="{{ route('approvals.approve', $request->id) }}" method="POST">
@@ -202,7 +219,6 @@
 
                 <h5 class="font-bold mb-2 text-gray-700 text-sm uppercase tracking-wide">Add New User</h5>
                 <div class="border border-indigo-100 p-4 rounded-md bg-indigo-50 mb-6 space-y-3">
-                    {{-- [NEW] Department Selection --}}
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">1. Filter by Department:</label>
                         <select id="deptSelect-{{ $request->id }}" class="w-full border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -214,7 +230,6 @@
                         </select>
                     </div>
 
-                    {{-- [UPDATED] User Selection (Filtered by JS) --}}
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">2. Select User to Add:</label>
                         <select id="newUserSelect-{{ $request->id }}" class="w-full border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400" 
@@ -235,9 +250,7 @@
     </div>
 @endforeach
 
-{{-- ================================================================= --}}
-{{-- 2. SHARED REJECT MODAL --}}
-{{-- ================================================================= --}}
+{{-- SHARED REJECT MODAL --}}
 <div id="sharedRejectModal" class="modal-overlay reject-modal-overlay" onclick="closeRejectModal()">
     <div class="modal-content reject-modal-content" onclick="event.stopPropagation();">
         <div class="flex justify-between items-center mb-4 border-b pb-2">
@@ -266,10 +279,8 @@
 
 @push('scripts')
 <script>
-    // --- [NEW] Global Data for JS Filtering ---
     const allUsersData = @json($allUsers);
 
-    // --- Modal Control Functions ---
     function closeModal(modalId) {
         const modal = document.getElementById(modalId);
         if(modal) {
@@ -306,55 +317,39 @@
         }
     }
 
-    // --- [UPDATED] Dynamic User Field Functions with Filtering ---
-
-    // 1. Department Selection Trigger
     function filterUsersByDept(requestId) {
         const deptSelect = document.getElementById('deptSelect-' + requestId);
         const userSelect = document.getElementById('newUserSelect-' + requestId);
         const selectedDept = deptSelect.value;
-
-        // Reset User Dropdown
         userSelect.innerHTML = '<option value="">-- Select User --</option>';
-        
         if (!selectedDept) {
             userSelect.disabled = true;
             userSelect.innerHTML = '<option value="">-- First Select a Department --</option>';
             return;
         }
-
         userSelect.disabled = false;
-
-        // Filter Data from Global Variable
         const filteredUsers = allUsersData.filter(user => user.department === selectedDept);
-
         if (filteredUsers.length === 0) {
             userSelect.innerHTML = '<option value="">No users found in this department</option>';
             userSelect.disabled = true;
         } else {
-            // Populate Dropdown
             filteredUsers.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user.id;
                 option.text = user.name;
-                option.dataset.name = user.name; // For display in added box
+                option.dataset.name = user.name;
                 userSelect.appendChild(option);
             });
         }
     }
 
-    // 2. Add User Logic
     function addNewUserField(selectElement, containerId) {
         const selectedOption = selectElement.options[selectElement.selectedIndex];
         const userId = selectedOption.value;
         const userName = selectedOption.dataset.name;
-
         if (!userId) return;
-
         const container = document.getElementById(containerId);
-        // Check for duplicate in the NEWLY added list
         if (document.getElementById('new-user-entry-' + userId)) return;
-
         const newFieldHTML = `
             <div id="new-user-entry-${userId}" class="new-user-entry bg-white border border-indigo-200" data-user-id="${userId}">
                 <div class="flex justify-between items-center border-b border-gray-100 pb-1 mb-1">
@@ -370,9 +365,7 @@
                        class="w-full border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500" required>
             </div>
         `;
-
         container.insertAdjacentHTML('beforeend', newFieldHTML);
-        // Reset selection but keep list populated
         selectElement.selectedIndex = 0;
     }
 

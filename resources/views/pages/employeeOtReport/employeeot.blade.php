@@ -17,12 +17,21 @@
             <div class="flex-1 w-full xl:w-auto">
                 <h1 class="text-2xl font-bold text-indigo-700">Employee OT Report</h1>
                 <p class="text-sm text-gray-500 font-medium">(Approved Actual Data)</p>
+                
+                @php
+                    // Convert total decimal hours to HH:MM
+                    $totalMins = round(($totalHours ?? 0) * 60);
+                    $totalHH = floor($totalMins / 60);
+                    $totalMM = $totalMins % 60;
+                    $formattedTotalHours = sprintf('%02d:%02d', $totalHH, $totalMM);
+                @endphp
+
                 <div class="mt-2 text-lg font-bold text-gray-800 bg-indigo-50 inline-block px-3 py-1 rounded-lg border border-indigo-100">
-                    Total: <span class="text-indigo-600">{{ number_format($totalHours, 2) }} hrs</span>
+                    Total: <span class="text-indigo-600">{{ $formattedTotalHours }} <small class="text-xs font-normal text-gray-400">HH:MM</small></span>
                 </div>
             </div>
             
-            {{-- Filter Form (Responsive Flex Layout) --}}
+            {{-- Filter Form --}}
             <form method="GET" action="{{ url('/reports/employee-ot') }}" class="w-full xl:w-auto">
                 <div class="flex flex-col sm:flex-row flex-wrap gap-4 items-end">
                     
@@ -50,16 +59,15 @@
                         </div>
                     </div>
 
-                    {{-- [NEW] Requirement Type Filter --}}
+                    {{-- Requirement Type Filter --}}
                     <div class="w-full sm:w-auto flex-1 min-w-[160px]">
                         <label for="requirement_type" class="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Requirement</label>
                         <div class="relative rounded-md shadow-sm">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2" /></svg>
                             </div>
                             <select name="requirement_type" id="requirement_type" class="pl-10 pr-8 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 w-full appearance-none cursor-pointer h-[42px]">
                                 <option value="">All Types</option>
-                                {{-- Controller မှ လာသော Requirement Types များ --}}
                                 @foreach($requirementTypes ?? [] as $type)
                                     <option value="{{ $type }}" {{ (request('requirement_type') == $type) ? 'selected' : '' }}>{{ $type }}</option>
                                 @endforeach
@@ -75,12 +83,12 @@
                         <label for="department" class="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Department</label>
                         <div class="relative rounded-md shadow-sm">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                             </div>
                             <select name="department" id="department" class="pl-10 pr-8 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 w-full appearance-none cursor-pointer h-[42px]">
                                 <option value="">All Departments</option>
                                 @php
-                                    $depts = ['Warehouse', 'ICD', 'Yard & Rail', 'Truck', 'IT', 'Process', 'Software', 'Data Center', 'Media', 'Secondary Transport', 'Business Development', 'Sales & CS', 'QEHS', 'Admin & HR', 'Finance & Account', 'M&E', 'Management', 'M&R', 'Customs & Formalities','Corportate'];
+                                    $depts = ['Warehouse', 'ICD', 'Yard & Rail', 'Truck', 'IT', 'Process', 'Software', 'Data Center', 'Media', 'Secondary Transport', 'Business Development', 'Sales & CS', 'QEHS', 'Admin & HR', 'Finance & Account', 'M&E', 'Management', 'M&R', 'Customs & Formalities','Corporate'];
                                 @endphp
                                 @foreach($depts as $dept)
                                     <option value="{{ $dept }}" {{ (request('department') == $dept) ? 'selected' : '' }}>{{ $dept }}</option>
@@ -98,10 +106,10 @@
                             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             Filter
                         </button>
-                        <a href="{{ url('/reports/employee-ot') }}" class="flex-1 inline-flex justify-center items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors h-[42px]">
+                        <a href="{{ url('/reports/employee-ot') }}" class="flex-1 inline-flex justify-center items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none h-[42px]">
                             Clear
                         </a>
-                        <a href="#" id="export-btn" class="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors h-[42px]">
+                        <a href="#" id="export-btn" class="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none h-[42px]">
                             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                             Export
                         </a>
@@ -118,22 +126,27 @@
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OT Date</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Code</th>
-                    {{-- [NEW] Requirement Type Column --}}
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requirement</th>
-                    
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supervisor</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-indigo-700 uppercase tracking-wider">Actual In/Out</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-indigo-700 uppercase tracking-wider">Actual Hours</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-indigo-700 uppercase tracking-wider">Actual Hours (HH:MM)</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse ($assignedOts as $item) 
+                    @php
+                        // Individual record duration conversion
+                        $rowMins = round(($item->actual_hours ?? 0) * 60);
+                        $rowH = floor($rowMins / 60);
+                        $rowM = $rowMins % 60;
+                        $formattedRowHours = sprintf('%02d:%02d', $rowH, $rowM);
+                    @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {{ Carbon\Carbon::parse($item->otRequest->ot_date)->format('M d, Y') }}
@@ -143,7 +156,6 @@
                             {{ $item->otRequest->job_code ?? '-' }}
                         </td>
 
-                        {{-- [NEW] Requirement Type Data --}}
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {{ $item->otRequest->requirement_type ?? '-' }}
                         </td>
@@ -178,7 +190,7 @@
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600">
-                            {{ number_format($item->actual_hours, 2) }} hrs
+                            {{ $formattedRowHours }}
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -208,12 +220,11 @@
             @if($assignedOts->count() > 0)
             <tfoot class="bg-gray-50 border-t-2 border-gray-300">
                 <tr>
-                    {{-- Colspan increased to 9 to align --}}
                     <td colspan="9" class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-700 uppercase">
-                        Total Actual Hours:
+                        Total Actual Hours (HH:MM):
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-700 text-base">
-                        {{ number_format($totalHours, 2) }}
+                        {{ $formattedTotalHours }}
                     </td>
                     <td colspan="2"></td>
                 </tr>
@@ -223,9 +234,8 @@
     </div>
 </div>
 
-{{-- Edit Task Modal (Same as before) --}}
+{{-- Edit Task Modal --}}
 <div id="editTaskModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    {{-- ... Modal content remains unchanged ... --}}
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div id="editTaskBackdrop" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
@@ -250,7 +260,7 @@
                 </div>
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                     <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">Save Changes</button>
-                    <button type="button" id="closeEditModal" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">Cancel</button>
+                    <button type="button" id="closeEditModal" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">Cancel</button>
                 </div>
             </form>
         </div>
@@ -266,7 +276,7 @@
         const startDateInput = document.querySelector('input[name="start_date"]');
         const endDateInput = document.querySelector('input[name="end_date"]');
         const deptInput = document.querySelector('select[name="department"]');
-        const reqTypeInput = document.querySelector('select[name="requirement_type"]'); // [NEW] Req Type Input
+        const reqTypeInput = document.querySelector('select[name="requirement_type"]');
         const baseUrl = "{{ route('reports.employee_ot.export') }}";
 
         function updateExportLink() {
@@ -274,7 +284,7 @@
             if (startDateInput.value) params.append('start_date', startDateInput.value);
             if (endDateInput.value) params.append('end_date', endDateInput.value);
             if (deptInput.value) params.append('department', deptInput.value);
-            if (reqTypeInput.value) params.append('requirement_type', reqTypeInput.value); // [NEW] Add to Export
+            if (reqTypeInput.value) params.append('requirement_type', reqTypeInput.value);
             exportBtn.href = baseUrl + '?' + params.toString();
         }
 
@@ -282,9 +292,9 @@
         startDateInput.addEventListener('change', updateExportLink);
         endDateInput.addEventListener('change', updateExportLink);
         deptInput.addEventListener('change', updateExportLink);
-        reqTypeInput.addEventListener('change', updateExportLink); // [NEW] Listener
+        reqTypeInput.addEventListener('change', updateExportLink);
 
-        // Edit Modal Logic (Same as before)
+        // Edit Modal Logic
         const modal = document.getElementById('editTaskModal');
         const closeBtn = document.getElementById('closeEditModal');
         const backdrop = document.getElementById('editTaskBackdrop');
@@ -308,8 +318,8 @@
             });
         });
 
-        closeBtn.addEventListener('click', closeModal);
-        backdrop.addEventListener('click', closeModal);
+        closeBtn?.addEventListener('click', closeModal);
+        backdrop?.addEventListener('click', closeModal);
     });
 </script>
 @endpush

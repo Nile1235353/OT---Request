@@ -40,8 +40,17 @@
             {{-- Total Hours Card --}}
             <div class="bg-indigo-500 text-white p-6 rounded-lg shadow-md mb-8">
                 <h4 class="text-lg font-semibold">Total Actual Approved OT Hours ({{ \Carbon\Carbon::create()->month($currentMonth)->year($currentYear)->format('F Y') }})</h4>
-                <p class="text-4xl font-bold mt-2">{{ $totalMonthlyHours }}</p>
-                <p class="text-xs text-indigo-200 mt-1">* Calculated based on actual fingerprint data for approved requests.</p>
+                
+                @php
+                    // Convert total monthly decimal hours to HH:MM
+                    $monthlyMins = round(($totalMonthlyHours ?? 0) * 60);
+                    $monthlyHH = floor($monthlyMins / 60);
+                    $monthlyMM = $monthlyMins % 60;
+                    $formattedMonthlyTotal = sprintf('%02d:%02d', $monthlyHH, $monthlyMM);
+                @endphp
+
+                <p class="text-4xl font-bold mt-2">{{ $formattedMonthlyTotal }}</p>
+                <p class="text-xs text-indigo-200 mt-1">* Calculated based on actual fingerprint data for approved requests in HH:MM format.</p>
             </div>
 
             <h4 class="text-xl font-bold mb-4">My Assigned OT Jobs</h4>
@@ -53,7 +62,7 @@
                             <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested Hrs</th>
                             
                             {{-- Actual Hours Column --}}
-                            <th class="table-header px-6 py-3 text-left text-xs font-medium text-indigo-600 uppercase tracking-wider">Actual (Fingerprint)</th>
+                            <th class="table-header px-6 py-3 text-left text-xs font-medium text-indigo-600 uppercase tracking-wider">Actual (HH:MM)</th>
                             
                             <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
                             <th class="table-header px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -67,21 +76,29 @@
                                 {{ \Carbon\Carbon::parse($job->otRequest->ot_date)->format('m/d/Y') }}
                             </td>
                             
-                            {{-- Requested Hours --}}
+                            {{-- Requested Hours (keeping as hrs suffix for distinction) --}}
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">
                                 {{ $job->otRequest->total_hours }} hrs
                             </td>
 
-                            {{-- [UPDATED] Actual Hours Logic: Only show if APPROVED --}}
+                            {{-- Actual Hours Logic: Only show if APPROVED --}}
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
                                 @if($job->otRequest->status == 'approved')
                                     @php
                                         $dateKey = \Carbon\Carbon::parse($job->otRequest->ot_date)->format('Y-m-d');
                                         $fingerprint = $attendanceRecords[$dateKey] ?? null;
+                                        
+                                        $rowFormatted = '-';
+                                        if($fingerprint) {
+                                            $rowMins = round(($fingerprint->actual_ot_hours ?? 0) * 60);
+                                            $rowH = floor($rowMins / 60);
+                                            $rowM = $rowMins % 60;
+                                            $rowFormatted = sprintf('%02d:%02d', $rowH, $rowM);
+                                        }
                                     @endphp
 
                                     @if($fingerprint)
-                                        <span class="font-bold text-indigo-600">{{ $fingerprint->actual_ot_hours }} hrs</span>
+                                        <span class="font-bold text-indigo-600">{{ $rowFormatted }}</span>
                                         <div class="text-[10px] text-gray-400">
                                             In: {{ $fingerprint->check_in_time ? \Carbon\Carbon::parse($fingerprint->check_in_time)->format('H:i') : '-' }} | 
                                             Out: {{ $fingerprint->check_out_time ? \Carbon\Carbon::parse($fingerprint->check_out_time)->format('H:i') : '-' }}
@@ -90,7 +107,6 @@
                                         <span class="text-gray-400 text-xs italic">Not Imported</span>
                                     @endif
                                 @else
-                                    {{-- If not approved, show dash or empty --}}
                                     <span class="text-gray-300 text-xs">-</span>
                                 @endif
                             </td>
